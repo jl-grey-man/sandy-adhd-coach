@@ -2,8 +2,7 @@ FROM python:3.10-slim
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PORT=8000
+    PYTHONDONTWRITEBYTECODE=1
 
 WORKDIR /app
 
@@ -24,12 +23,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy the backend code
 COPY backend/ ./
 
-# Create a startup script
-RUN echo '#!/bin/bash\nuvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}' > /start.sh && \
-    chmod +x /start.sh
-
 # Expose port
 EXPOSE 8000
 
-# Start command
-CMD ["/bin/bash", "/start.sh"]
+# Start command - Railway automatically sets PORT env var
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}

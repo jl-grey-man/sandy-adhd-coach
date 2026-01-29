@@ -23,8 +23,11 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy the backend code
 COPY backend/ ./
 
+# Make start script executable
+RUN chmod +x start.sh
+
 # Expose port
 EXPOSE 8000
 
-# Start command - Railway automatically sets PORT env var
-CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+# Start both web server and Telegram bot
+CMD ["./start.sh"]

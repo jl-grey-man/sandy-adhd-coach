@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 
-from app.routers import auth, chat, frontend, telegram, projects, patterns
+from app.routers import auth, chat, frontend, telegram, projects, patterns, admin
 
 # Create FastAPI app instance
 app = FastAPI(
@@ -33,6 +33,7 @@ app.include_router(chat.router)
 app.include_router(telegram.router)
 app.include_router(projects.router)
 app.include_router(patterns.router)  # Pattern learning API
+app.include_router(admin.router)  # Admin endpoints
 
 
 # Initialize Telegram bot on startup

@@ -8,7 +8,7 @@ Beyond basic patterns, track these ADHD-specific behaviors:
 LEARNING_CATEGORIES = {
     # TASK EXECUTION
     "task_initiation": {
-        "description": "What actually gets him started on tasks",
+        "description": "What actually gets you started on tasks",
         "patterns": [
             "Body doubling (working while on call)",
             "External deadline pressure",
@@ -22,7 +22,7 @@ LEARNING_CATEGORIES = {
     },
     
     "hyperfocus_triggers": {
-        "description": "What puts him in the zone",
+        "description": "What puts you in the zone",
         "patterns": [
             "Creative vs analytical tasks",
             "Time pressure (deadline dopamine)",
@@ -34,7 +34,7 @@ LEARNING_CATEGORIES = {
     },
     
     "avoidance_reasons": {
-        "description": "WHY he avoids specific tasks",
+        "description": "WHY you avoid specific tasks",
         "patterns": [
             "Unclear what 'done' looks like",
             "Too many steps (needs breakdown)",
@@ -49,7 +49,7 @@ LEARNING_CATEGORIES = {
     
     # ENERGY & CONTEXT
     "context_switching_cost": {
-        "description": "How he handles switching between tasks",
+        "description": "How you handle switching between tasks",
         "patterns": [
             "Better with similar tasks grouped",
             "Needs transition time",
@@ -60,7 +60,7 @@ LEARNING_CATEGORIES = {
     },
     
     "energy_curves": {
-        "description": "What drains vs energizes beyond time of day",
+        "description": "What drains vs energizes you beyond time of day",
         "patterns": [
             "Social interaction effect",
             "Creative work impact",
@@ -73,7 +73,7 @@ LEARNING_CATEGORIES = {
     
     # MOTIVATION
     "motivation_sources": {
-        "description": "What actually drives action",
+        "description": "What actually drives you to action",
         "patterns": [
             "External validation",
             "Progress visualization",
@@ -86,7 +86,7 @@ LEARNING_CATEGORIES = {
     },
     
     "reward_sensitivity": {
-        "description": "What rewards motivate",
+        "description": "What rewards motivate you",
         "patterns": [
             "Immediate gratification",
             "Long-term payoff",
@@ -100,7 +100,7 @@ LEARNING_CATEGORIES = {
     
     # DECISION MAKING
     "decision_fatigue": {
-        "description": "When decision paralysis hits",
+        "description": "When you hit decision paralysis",
         "patterns": [
             "Too many options",
             "No clear best choice",
@@ -113,7 +113,7 @@ LEARNING_CATEGORIES = {
     
     # ACCOUNTABILITY
     "accountability_effectiveness": {
-        "description": "What type of accountability works",
+        "description": "What type of accountability works for you",
         "patterns": [
             "Hard deadlines (external)",
             "Soft deadlines (self-imposed)",
@@ -127,7 +127,7 @@ LEARNING_CATEGORIES = {
     
     # TASK STRUCTURE
     "task_breakdown_needs": {
-        "description": "How much structure he needs",
+        "description": "How much structure you need",
         "patterns": [
             "Overwhelmed by large projects",
             "Benefits from step-by-step",
@@ -139,7 +139,7 @@ LEARNING_CATEGORIES = {
     
     # RECOVERY & MOMENTUM
     "interruption_recovery": {
-        "description": "How he handles being interrupted",
+        "description": "How you handle being interrupted",
         "patterns": [
             "Gets back on track quickly",
             "Loses entire session",
@@ -150,7 +150,7 @@ LEARNING_CATEGORIES = {
     },
     
     "momentum_building": {
-        "description": "How he builds work momentum",
+        "description": "How you build work momentum",
         "patterns": [
             "Small wins cascade",
             "Needs warm-up tasks",
@@ -162,7 +162,7 @@ LEARNING_CATEGORIES = {
     
     # EMOTIONAL
     "failure_response": {
-        "description": "How he handles setbacks",
+        "description": "How you handle setbacks",
         "patterns": [
             "Catastrophizes and spirals",
             "Bounces back quickly",
@@ -174,7 +174,7 @@ LEARNING_CATEGORIES = {
     
     # NOVELTY & EXPLORATION
     "novelty_seeking": {
-        "description": "How much novelty he needs",
+        "description": "How much novelty you need",
         "patterns": [
             "Gets bored quickly with repetition",
             "Thrives on routine/structure",
@@ -186,7 +186,7 @@ LEARNING_CATEGORIES = {
     
     # ENVIRONMENT
     "sensory_environment": {
-        "description": "What environment helps him work",
+        "description": "What environment helps you work",
         "patterns": [
             "Music type/volume",
             "Silence vs background noise",
@@ -199,7 +199,7 @@ LEARNING_CATEGORIES = {
     
     # COMMUNICATION
     "communication_response": {
-        "description": "What tone/approach works",
+        "description": "What tone/approach works for you",
         "patterns": [
             "Direct push",
             "Gentle suggestion",
@@ -213,7 +213,7 @@ LEARNING_CATEGORIES = {
     
     # TIME
     "time_perception": {
-        "description": "How he estimates time",
+        "description": "How you estimate time",
         "patterns": [
             "Optimistic (underestimates)",
             "Pessimistic (overestimates)",
@@ -224,7 +224,7 @@ LEARNING_CATEGORIES = {
     },
     
     "urgency_response": {
-        "description": "How he responds to urgency",
+        "description": "How you respond to urgency",
         "patterns": [
             "Thrives under pressure",
             "Freezes/panics",

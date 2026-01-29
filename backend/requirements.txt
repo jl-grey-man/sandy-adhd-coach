@@ -19,12 +19,12 @@ python-multipart==0.0.6
 # Environment
 python-dotenv==1.0.0
 
-# HTTP Client
-httpx==0.26.0
+# HTTP Client - use compatible version
+httpx>=0.25.2,<0.26.0
 
 # AI/ML
-pinecone-client==3.0.0
-openai==1.10.0
+pinecone-client>=3.0.0
+openai>=1.10.0
 
 # Telegram Bot
 python-telegram-bot==20.7

@@ -249,14 +249,25 @@ class TelegramService:
             context_data = build_context_for_ai(user.id, db)
             context_str = format_context_for_prompt(context_data)
             
+            # Get relevant long-term memories using Pinecone (SAME AS WEB CHAT)
+            from app.services.memory import get_memory_service
+            memory_service = get_memory_service()
+            
+            relevant_memories = memory_service.search_relevant_memories(
+                query=user_message,
+                user_id=user.id,
+                top_k=3,
+                exclude_session=f"user_{user.id}_global"
+            )
+            
             # Get recent conversation history (last 10 messages from ANY interface)
             from app.models.conversation import Conversation
             from datetime import datetime, timedelta
             from app.services.learning import RealTimeLearning
             
+            # FIXED: Removed 2-hour time limit - get ALL recent conversations
             recent_convos = db.query(Conversation).filter(
-                Conversation.user_id == user.id,
-                Conversation.created_at >= datetime.utcnow() - timedelta(hours=2)  # Last 2 hours
+                Conversation.user_id == user.id
             ).order_by(Conversation.created_at.desc()).limit(10).all()
             
             # Build conversation history (most recent first, so reverse it)
@@ -265,13 +276,14 @@ class TelegramService:
                 conversation_history.append({"role": "user", "content": conv.user_message})
                 conversation_history.append({"role": "assistant", "content": conv.ai_response})
             
-            # Call AI service with context data (includes learned patterns)
+            # Call AI service with context data (includes learned patterns) AND relevant memories
             response = get_ai_response(
                 user_message=user_message,
                 user_id=user.id,
                 db=db,
                 conversation_history=conversation_history,
-                context=context_data  # This now includes learned_patterns and exploration_status
+                context=context_data,  # This now includes learned_patterns and exploration_status
+                relevant_memories=relevant_memories  # Long-term memory from Pinecone
             )
             
             # DEBUG: Log the raw response
@@ -367,6 +379,19 @@ class TelegramService:
             )
             db.add(conversation)
             db.commit()
+            db.refresh(conversation)
+            
+            # Store to Pinecone for long-term memory (SAME AS WEB CHAT)
+            try:
+                memory_service.store_conversation(
+                    conversation_id=conversation.id,
+                    user_id=user.id,
+                    user_message=user_message,
+                    ai_response=clean_response or response,
+                    session_id=f"user_{user.id}_global"
+                )
+            except Exception as e:
+                logger.error(f"Failed to store conversation in Pinecone: {e}")
             
         finally:
             db.close()

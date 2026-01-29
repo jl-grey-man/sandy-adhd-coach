@@ -8,6 +8,19 @@ TOGETHER_API_URL = "https://api.together.xyz/v1/chat/completions"
 MODEL = "meta-llama/Llama-3.3-70B-Instruct-Turbo"
 
 
+def build_system_prompt(user_profile: dict) -> str:
+    """
+    Build basic system prompt from user profile.
+    Used by /get-prompt endpoint for prompt editing.
+    """
+    custom_prompt = user_profile.get("custom_system_prompt")
+    if custom_prompt:
+        return custom_prompt
+    
+    # Return the comprehensive prompt without context
+    return build_comprehensive_system_prompt(user_profile, {})
+
+
 def build_comprehensive_system_prompt(user_profile: dict, context: dict) -> str:
     """
     Build the complete Sandy personality with learned context.

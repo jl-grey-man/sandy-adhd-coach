@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(source venv/bin/activate)",
+      "Bash(pip install:*)",
+      "Bash(python:*)",
+      "Bash(alembic revision:*)",
+      "Bash(createdb:*)",
+      "Bash(brew --prefix:*)",
+      "Bash(/opt/homebrew/opt/postgresql@16/bin/createdb:*)",
+      "Bash(brew list:*)",
+      "Bash(brew services:*)",
+      "Bash(pg_isready:*)",
+      "Bash(/opt/homebrew/opt/postgresql@15/bin/createdb:*)",
+      "Bash(alembic upgrade:*)",
+      "Bash(/opt/homebrew/opt/postgresql@15/bin/psql:*)"
+    ]
+  }
+}

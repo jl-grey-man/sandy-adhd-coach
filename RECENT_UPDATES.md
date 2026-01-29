@@ -257,9 +257,30 @@ VITE_API_URL=https://sandy-adhd-coach-production.up.railway.app
 
 ## 🎯 **WHAT'S NEXT / KNOWN ISSUES**
 
-### Potential Improvements
+### Priority Items (Jan 30, 2026)
+- [ ] **Rebuild Web UI** - Not chat interface, but control panel:
+  - File upload capability
+  - Prompt editing interface
+  - View all saved information (tasks, patterns, observations)
+  - Activity feed/log showing everything Sandy changes/remembers
+  - Real-time updates feed
+  
+- [ ] **Fix /explore response** - First part good, second part too generic
+  - Make exploration responses more varied and natural
+  - Currently uses static database text
+  
+- [ ] **Make Sandy an ADHD expert** - Think outside the box
+  - How to give her deeper ADHD knowledge?
+  - More creative pattern recognition?
+  - Better understanding of neurodivergent thinking?
+  
+- [ ] **Verify document upload feature** - Does it work?
+  - Can files be uploaded?
+  - Does Sandy actually use uploaded documents?
+  - Test end-to-end document handling
+
+### Lower Priority Improvements
 - [ ] Time-aware greetings (Sandy doesn't know time of day yet)
-- [ ] Vary /explore responses (currently static database text)
 - [ ] Enhanced pattern visualization for user
 - [ ] Export task/pattern data
 

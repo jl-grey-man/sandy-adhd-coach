@@ -99,38 +99,55 @@ Read these files in this order to understand the complete system:
 
 ### 1. **DATABASE_SCHEMA.md** (Read First)
 **Why**: Understand the data model before anything else
+**Location**: `/DATABASE_SCHEMA.md` (root directory)
 **Contains**:
 - Complete database schema
 - Table relationships
 - Key fields and their purposes
 - Pattern learning tables
 
-### 2. **PROMPT_SYSTEM.md** (Read Second)
-**Why**: The prompts ARE Sandy's personality and behavior
+### 2. **backend/SANDY_SYSTEM_PROMPT_FULL.md** (Read Second)
+**Why**: This IS Sandy's personality and behavior (Part 1)
+**Location**: `/backend/SANDY_SYSTEM_PROMPT_FULL.md`
 **Contains**:
-- How the dual-prompt system works
-- Sandy's complete personality definition
-- Response principles and examples
-- Recent prompt updates (spirit-over-script)
+- Core personality (Rachel Zane + Joan Holloway)
+- Communication style and voice
+- Critical rules (never hallucinate, acknowledge first)
+- Situation handling approaches
+- Working with hypotheses (stay curious)
+- Spirit-over-script philosophy
 
-### 3. **API_REFERENCE.md** (Read Third)
-**Why**: Understand how the system processes requests
+### 3. **backend/SANDY_SYSTEM_PROMPT_PART2.md** (Read Third)
+**Why**: Sandy's actions and features (Part 2)
+**Location**: `/backend/SANDY_SYSTEM_PROMPT_PART2.md`
 **Contains**:
-- Core API endpoints
-- Authentication flow
-- Request/response formats
-- Action parsing system
+- Action system (tasks, reminders, projects)
+- Exploration mode
+- Memory & learning integration
+- Conversational patterns
+- Tone calibration
 
-### 4. **PATTERN_LEARNING_SYSTEM.md** (Read Fourth)
-**Why**: This is what makes Sandy learn and improve
+### 4. **backend/app/services/pattern_learning.py** (Read Fourth)
+**Why**: This is the pattern learning implementation
+**Location**: `/backend/app/services/pattern_learning.py`
 **Contains**:
-- 18 ADHD pattern categories
-- 90 subpatterns and detection
-- Observation → Hypothesis flow
-- Confidence scoring system
+- How observations become hypotheses
+- Confidence scoring logic
+- Pattern formation rules
+- Read the code to understand implementation
 
-### 5. **RECENT_UPDATES.md** (Read Last)
+### 5. **backend/app/services/subpatterns.py** (Read Fifth)
+**Why**: See all 90 subpatterns defined
+**Location**: `/backend/app/services/subpatterns.py`
+**Contains**:
+- 90 subpattern definitions
+- Keyword detection logic
+- Category mappings
+- Read the code for complete reference
+
+### 6. **RECENT_UPDATES.md** (Read Last)
 **Why**: Know what changed recently and current state
+**Location**: `/RECENT_UPDATES.md` (root directory)
 **Contains**:
 - Latest deployments
 - Recent bug fixes
@@ -517,20 +534,23 @@ If you only read a few files, read these:
 2. **DATABASE_SCHEMA.md**
    - Data model and relationships
 
-3. **PROMPT_SYSTEM.md**
-   - How Sandy's personality works
+3. **backend/SANDY_SYSTEM_PROMPT_FULL.md** (Part 1)
+   - Sandy's complete personality
 
-4. **PATTERN_LEARNING_SYSTEM.md**
-   - How Sandy learns and improves
+4. **backend/SANDY_SYSTEM_PROMPT_PART2.md** (Part 2)
+   - Sandy's actions and features
 
 5. **backend/app/services/context.py**
    - How context is built for each AI request
 
-6. **backend/SANDY_SYSTEM_PROMPT_FULL.md**
-   - Sandy's actual personality prompt (Part 1)
+6. **backend/app/services/pattern_learning.py**
+   - Pattern learning implementation
 
-7. **backend/SANDY_SYSTEM_PROMPT_PART2.md**
-   - Sandy's actions and learning prompt (Part 2)
+7. **backend/app/services/subpatterns.py**
+   - All 90 subpatterns defined
+
+8. **RECENT_UPDATES.md**
+   - Current state and recent changes
 
 ---
 

@@ -23,7 +23,7 @@ python-dotenv==1.0.0
 httpx>=0.25.2,<0.26.0
 
 # AI/ML
-pinecone-client>=3.0.0
+pinecone>=3.0.0
 openai>=1.10.0
 
 # Telegram Bot

@@ -26,9 +26,10 @@ class PatternLearningService:
         self,
         category_name: str,
         observation: str,
-        context: Dict = None
+        context: Dict = None,
+        sub_pattern: str = None  # NEW: Specific subpattern detected
     ):
-        """Add a single observation to a category."""
+        """Add a single observation to a category with optional subpattern."""
         
         # Get or create category
         category = self.db.query(PatternCategory).filter(
@@ -39,10 +40,11 @@ class PatternLearningService:
         if not category:
             return  # Category doesn't exist
         
-        # Add observation
+        # Add observation with subpattern
         obs = PatternObservation(
             user_id=self.user_id,
             category_id=category.id,
+            sub_pattern=sub_pattern,  # ← Now saves specific subpattern!
             observation=observation,
             context=context or {}
         )
@@ -56,81 +58,105 @@ class PatternLearningService:
         """
         Analyze observations and update hypotheses.
         
-        Logic:
-        - Need 3+ observations before forming hypothesis
-        - Confidence = (supporting - contradicting) / total * 100
-        - If confidence < 30% after 10 observations, flag for exploration
+        NOW CONSIDERS SUBPATTERNS!
+        - Groups observations by subpattern
+        - Forms hypothesis per subpattern when ≥3 observations
+        - Also forms general category hypothesis
         """
         
         # Get all observations for this category
-        obs_count = self.db.query(func.count(PatternObservation.id)).filter(
-            PatternObservation.category_id == category_id
-        ).scalar()
-        
-        if obs_count < 3:
-            return  # Not enough data yet
-        
-        # Get observations
         observations = self.db.query(PatternObservation).filter(
             PatternObservation.category_id == category_id
         ).order_by(PatternObservation.observed_at.desc()).all()
         
-        # Try to detect pattern
-        pattern_detected = self._detect_pattern(observations)
+        if len(observations) < 3:
+            return  # Not enough data yet
         
-        if pattern_detected:
-            # Update or create hypothesis
-            hypothesis = self.db.query(PatternHypothesis).filter(
-                PatternHypothesis.category_id == category_id
-            ).first()
-            
-            if not hypothesis:
-                hypothesis = PatternHypothesis(
-                    user_id=self.user_id,
-                    category_id=category_id,
-                    hypothesis=pattern_detected['hypothesis'],
-                    confidence=pattern_detected['confidence'],
-                    supporting_observations=pattern_detected['supporting'],
-                    contradicting_observations=pattern_detected['contradicting'],
-                    status='exploring'
-                )
-                self.db.add(hypothesis)
-            else:
-                hypothesis.hypothesis = pattern_detected['hypothesis']
-                hypothesis.confidence = pattern_detected['confidence']
-                hypothesis.supporting_observations = pattern_detected['supporting']
-                hypothesis.contradicting_observations = pattern_detected['contradicting']
-                hypothesis.last_updated = datetime.utcnow()
-            
-            # Flag for exploration if confidence is low after many observations
-            if obs_count >= 10 and hypothesis.confidence < 30:
-                hypothesis.needs_exploration = True
-            
-            # Mark as confirmed if high confidence
-            if hypothesis.confidence >= 80:
-                hypothesis.status = 'confirmed'
-            
-            self.db.commit()
+        # Group by subpattern
+        subpattern_groups = {}
+        for obs in observations:
+            sp = obs.sub_pattern or 'general'
+            if sp not in subpattern_groups:
+                subpattern_groups[sp] = []
+            subpattern_groups[sp].append(obs)
+        
+        # Form hypothesis for each subpattern with ≥3 observations
+        for sub_pattern, obs_list in subpattern_groups.items():
+            if len(obs_list) >= 3:
+                pattern_detected = self._detect_pattern(obs_list, sub_pattern)
+                
+                if pattern_detected:
+                    # Find or create hypothesis for this subpattern
+                    sp_value = None if sub_pattern == 'general' else sub_pattern
+                    hypothesis = self.db.query(PatternHypothesis).filter(
+                        PatternHypothesis.category_id == category_id,
+                        PatternHypothesis.sub_pattern == sp_value
+                    ).first()
+                    
+                    if not hypothesis:
+                        hypothesis = PatternHypothesis(
+                            user_id=self.user_id,
+                            category_id=category_id,
+                            sub_pattern=sp_value,
+                            hypothesis=pattern_detected['hypothesis'],
+                            confidence=pattern_detected['confidence'],
+                            supporting_observations=pattern_detected['supporting'],
+                            contradicting_observations=pattern_detected['contradicting'],
+                            status='exploring'
+                        )
+                        self.db.add(hypothesis)
+                    else:
+                        hypothesis.hypothesis = pattern_detected['hypothesis']
+                        hypothesis.confidence = pattern_detected['confidence']
+                        hypothesis.supporting_observations = pattern_detected['supporting']
+                        hypothesis.contradicting_observations = pattern_detected['contradicting']
+                        hypothesis.last_updated = datetime.utcnow()
+                    
+                    # Flag for exploration if confidence is low
+                    if len(obs_list) >= 10 and hypothesis.confidence < 30:
+                        hypothesis.needs_exploration = True
+                    
+                    # Mark as confirmed if high confidence
+                    if hypothesis.confidence >= 80:
+                        hypothesis.status = 'confirmed'
+        
+        self.db.commit()
     
-    def _detect_pattern(self, observations: List[PatternObservation]) -> Optional[Dict]:
+    def _detect_pattern(self, observations: List[PatternObservation], sub_pattern: str = None) -> Optional[Dict]:
         """
         Analyze observations to detect patterns.
         
-        This is simplified - in production would use NLP/ML.
-        For now, looks for repeated keywords and context patterns.
+        Enhanced with subpattern awareness!
         """
         
         if len(observations) < 3:
             return None
         
-        # Extract keywords from observations
-        all_text = " ".join([obs.observation.lower() for obs in observations])
+        # Get category
+        category = self.db.query(PatternCategory).get(observations[0].category_id)
         
-        # Simple pattern detection (would be more sophisticated in production)
-        # For now, just count observations
+        # Import subpattern descriptions
+        from app.services.subpatterns import get_subpattern_description
+        
+        # Build hypothesis text
+        if sub_pattern and sub_pattern != 'general':
+            sp_desc = get_subpattern_description(category.category_name, sub_pattern)
+            if sp_desc:
+                hypothesis_text = f"{sp_desc} (observed {len(observations)} times)"
+            else:
+                hypothesis_text = f"Pattern: {sub_pattern} (observed {len(observations)} times)"
+        else:
+            # General category hypothesis
+            hypothesis_text = f"Pattern emerging in {category.category_name.replace('_', ' ')} ({len(observations)} observations)"
+        
+        # Calculate confidence (simple for now)
+        # Base: 10 per observation, max 100
+        # Adjusted by recency (more recent = higher confidence)
+        base_confidence = min(len(observations) * 10, 100)
+        
         return {
-            'hypothesis': f'Pattern emerging from {len(observations)} observations',
-            'confidence': min(len(observations) * 10, 100),
+            'hypothesis': hypothesis_text,
+            'confidence': base_confidence,
             'supporting': len(observations),
             'contradicting': 0
         }
@@ -158,21 +184,23 @@ class PatternLearningService:
         return results
     
     def get_confirmed_patterns(self, min_confidence: int = 80) -> List[Dict]:
-        """Get patterns Sandy is confident about."""
+        """Get patterns Sandy is confident about (including subpatterns)."""
         
         hypotheses = self.db.query(PatternHypothesis).join(PatternCategory).filter(
             PatternHypothesis.user_id == self.user_id,
             PatternHypothesis.confidence >= min_confidence,
             PatternHypothesis.status == 'confirmed'
-        ).all()
+        ).order_by(PatternHypothesis.confidence.desc()).all()
         
         results = []
         for hyp in hypotheses:
             category = self.db.query(PatternCategory).get(hyp.category_id)
             results.append({
                 'category': category.category_name,
+                'sub_pattern': hyp.sub_pattern,  # NEW: Include subpattern
                 'hypothesis': hyp.hypothesis,
-                'confidence': hyp.confidence
+                'confidence': hyp.confidence,
+                'supporting_observations': hyp.supporting_observations
             })
         
         return results

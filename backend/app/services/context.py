@@ -148,12 +148,28 @@ def format_context_for_prompt(context: dict) -> str:
     lines.append(f"TODAY'S DATE: {context['current_date']}")
     lines.append("")
     
-    # CONFIRMED PATTERNS (Memory Integration)
+    # CONFIRMED PATTERNS (Memory Integration) - Present as working theories
     if context.get("learned_patterns"):
-        lines.append("WHAT YOU KNOW ABOUT JENS (CONFIRMED PATTERNS):")
+        lines.append("WORKING HYPOTHESES ABOUT JENS (Stay curious, invite challenge):")
+        lines.append("")
         for p in context["learned_patterns"][:10]:
             category_name = p['category'].replace('_', ' ').title()
-            lines.append(f"  - [{category_name}] {p['hypothesis']} ({p['confidence']}% confident)")
+            confidence = p['confidence']
+            
+            # Confidence phrasing
+            if confidence < 70:
+                phrase = "Might be noticing"
+            elif confidence < 85:
+                phrase = "Think I'm seeing"
+            elif confidence < 95:
+                phrase = "Pattern seems to be"
+            else:
+                phrase = "Consistently happens"
+            
+            lines.append(f"  • {phrase}: {p['hypothesis']}")
+            lines.append(f"    [{category_name}, {confidence}% confidence, based on {p.get('supporting_observations', '?')} observations]")
+        lines.append("")
+        lines.append("  Remember: These are theories to test, not facts. Stay open to being wrong!")
         lines.append("")
     
     # EXPLORATION STATUS (What you're still learning)

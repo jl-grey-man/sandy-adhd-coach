@@ -3,6 +3,7 @@ fastapi==0.109.0
 uvicorn[standard]==0.27.0
 pydantic[email]==2.5.3
 pydantic-settings==2.1.0
+jinja2>=3.1.0
 
 # Database
 sqlalchemy==2.0.25
@@ -19,8 +20,9 @@ python-multipart==0.0.6
 # Environment
 python-dotenv==1.0.0
 
-# HTTP Client - use compatible version
+# HTTP Clients
 httpx>=0.25.2,<0.26.0
+requests>=2.31.0
 
 # AI/ML
 pinecone>=3.0.0
@@ -32,6 +34,7 @@ python-telegram-bot==20.7
 # Document Processing
 pypdf>=3.0.0
 python-docx>=0.8.11
+beautifulsoup4>=4.12.0
 
 # Development
 pytest==7.4.4

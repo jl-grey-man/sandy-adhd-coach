@@ -263,7 +263,7 @@ class TelegramService:
             # Get recent conversation history (last 10 messages from ANY interface)
             from app.models.conversation import Conversation
             from datetime import datetime, timedelta
-            from app.services.learning import RealTimeLearning
+            from app.services.pattern_learning import PatternLearningService  # CORRECT learning system
             
             # FIXED: Removed 2-hour time limit - get ALL recent conversations
             recent_convos = db.query(Conversation).filter(
@@ -288,6 +288,16 @@ class TelegramService:
             
             # DEBUG: Log the raw response
             logger.info(f"Raw AI response: {response}")
+            
+            # DETECT AND APPLY FEEDBACK (if user is giving Sandy instructions)
+            from app.services.feedback import detect_feedback, apply_feedback
+            
+            feedback_data = detect_feedback(user_message)
+            feedback_confirmation = None
+            
+            if feedback_data['is_feedback']:
+                feedback_confirmation = apply_feedback(feedback_data, user.id, db)
+                logger.info(f"Applied feedback: {feedback_data['instruction']}")
             
             # Extract and execute any actions from response
             actions = extract_actions_from_response(response)
@@ -322,6 +332,10 @@ class TelegramService:
             
             clean_response = clean_response.strip()
             
+            # Add feedback confirmation if user gave feedback
+            if feedback_confirmation:
+                clean_response = f"{feedback_confirmation}\n\n{clean_response}" if clean_response else feedback_confirmation
+            
             logger.info(f"Cleaned response: {clean_response}")
             
             # SEND HUMAN RESPONSE FIRST
@@ -342,30 +356,19 @@ class TelegramService:
                         details=result["details"]
                     )
             
-            # REAL-TIME LEARNING (analyze interaction immediately)
-            learner = RealTimeLearning(user.id, db)
+            # REAL-TIME LEARNING - Extract and save patterns immediately
+            from app.services.learning_extraction import extract_and_save_learnings
             
-            # Analyze this interaction
-            learnings = learner.analyze_interaction(
+            learnings = extract_and_save_learnings(
                 user_message=user_message,
-                sandy_response=clean_response,
-                action_taken=action_result
+                ai_response=clean_response or response,
+                user_id=user.id,
+                db=db,
+                action_result=action_result
             )
             
-            # REAL-TIME LEARNING (analyze interaction immediately)
-            learner = RealTimeLearning(user.id, db)
-            
-            # Analyze this interaction
-            learnings = learner.analyze_interaction(
-                user_message=user_message,
-                sandy_response=clean_response,
-                action_taken=action_result
-            )
-            
-            # Apply learnings to database immediately
             if learnings:
-                learner.apply_learnings(learnings)
-                logger.info(f"Learned {len(learnings)} patterns from interaction")
+                logger.info(f"Extracted {len(learnings)} learnings from interaction")
             
             # Save conversation to database for history
             # Use user-based session_id for cross-platform sync

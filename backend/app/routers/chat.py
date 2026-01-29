@@ -161,6 +161,16 @@ async def send_message(
             )
             suggestions = []
     else:
+        # DETECT AND APPLY FEEDBACK (if user is giving Sandy instructions)
+        from app.services.feedback import detect_feedback, apply_feedback
+        
+        feedback_data = detect_feedback(request.message)
+        feedback_confirmation = None
+        
+        if feedback_data['is_feedback']:
+            feedback_confirmation = apply_feedback(feedback_data, current_user.id, db)
+            print(f"Applied feedback: {feedback_data['instruction']}")
+        
         ai_response = get_ai_response(
             user_message=request.message,
             user_id=current_user.id,
@@ -169,7 +179,31 @@ async def send_message(
             context=context_data,
             relevant_memories=relevant_memories,
         )
+        
+        # Add feedback confirmation to response if present
+        if feedback_confirmation:
+            ai_response = f"{feedback_confirmation}\n\n{ai_response}" if ai_response else feedback_confirmation
+        
         suggestions = []
+
+    # REAL-TIME LEARNING - Extract and save patterns immediately (SAME AS TELEGRAM)
+    from app.services.learning_extraction import extract_and_save_learnings
+    from app.services.ai_actions import extract_actions_from_response
+    
+    # Check if any actions were executed
+    actions_taken = extract_actions_from_response(ai_response)
+    action_result = {'success': bool(actions_taken), 'actions': actions_taken} if actions_taken else None
+    
+    learnings = extract_and_save_learnings(
+        user_message=request.message,
+        ai_response=ai_response,
+        user_id=current_user.id,
+        db=db,
+        action_result=action_result
+    )
+    
+    if learnings:
+        print(f"Web chat: Extracted {len(learnings)} learnings from interaction")
 
     conversation = Conversation(
         user_id=current_user.id,

@@ -1,9 +1,14 @@
-# SANDY - COMPLETE SYSTEM ARCHITECTURE
+# SANDY - COMPLETE SYSTEM ARCHITECTURE (Updated Jan 29, 2026)
 
-## What We've Built
+## ✅ What's Actually Implemented
 
 ### 1. **COMPREHENSIVE SYSTEM PROMPT** ✅
 Location: `SANDY_SYSTEM_PROMPT_FULL.md` + `SANDY_SYSTEM_PROMPT_PART2.md`
+
+**How it works:**
+- Both .md files are loaded at startup by `ai.py`
+- Combined into single comprehensive prompt (658 lines total)
+- Can be edited and Sandy will use changes on next restart
 
 **Contains:**
 - Core identity & personality (Rachel Zane + Joan Holloway)
@@ -17,172 +22,278 @@ Location: `SANDY_SYSTEM_PROMPT_FULL.md` + `SANDY_SYSTEM_PROMPT_PART2.md`
 - Multi-turn conversation examples
 - Tone calibration by context
 
-**Key Features:**
-- 600+ lines of detailed behavioral rules
-- Specific examples for every situation
-- No scripts - guidelines for creative freedom
-- Emphasis on learning and adaptation
-
 ---
 
-### 2. **DEEP MEMORY INTEGRATION** 🧠
-Location: `MEMORY_AND_LEARNING_ARCHITECTURE.py`
+### 2. **PATTERN LEARNING SYSTEM** 🧠 (Fixed & Working)
+Location: `app/services/pattern_learning.py`
 
-**How It Works:**
+**Database Tables:**
+- `pattern_categories` - 18 main ADHD pattern areas (task_initiation, hyperfocus, etc.)
+- `pattern_observations` - Individual learnings from conversations
+- `pattern_hypotheses` - Formed patterns with confidence scores
+
+**How Learning Works:**
 
 ```
 User Message
      ↓
-[Context Builder] ← Pulls from database:
-     ├─ Current tasks/projects
-     ├─ Learned patterns (high confidence)
-     ├─ Exploration status
-     └─ Recent conversation patterns
+[AI Response Generated]
      ↓
-[Memory Formatter] ← Converts to natural language
+[learning_extraction.py] ← Analyzes conversation:
+     ├─ Detects avoidance phrases ("later", "maybe")
+     ├─ Identifies energy indicators ("tired", "pumped")
+     ├─ Tracks time mentions
+     ├─ Records completion patterns
+     └─ Detects motivation triggers
      ↓
-[Prompt Injection] ← Added to system prompt
+[PatternLearningService.add_observation()] ← Saves to database
      ↓
-[AI Response] ← Sandy uses memory naturally
+[Hypothesis Formation] ← After 3-5 observations:
+     ├─ Analyzes patterns
+     ├─ Calculates confidence (0-100%)
+     └─ Stores hypothesis
      ↓
-[User sees response]
+[Next Response] ← Sandy uses high-confidence patterns (80%+)
 ```
 
-**Database Tables:**
-- `exploration_topics` - What Sandy needs to understand
-- `learned_patterns` - What Sandy knows about you
-- `interaction_outcomes` - What approaches work
+**What Gets Learned:**
+- Task initiation triggers (what makes you start)
+- Avoidance patterns (deflection phrases, resistance)
+- Energy patterns (when high/low energy occurs)
+- Time perception (estimation accuracy)
+- Communication responses (what tone works)
+- Motivation sources (deadlines, accountability, etc.)
+- Hyperfocus triggers (what creates flow)
 
-**Smart Retrieval:**
-- Not all memory dumped every time
-- Relevant memory retrieved based on context
-- If discussing tasks → get productivity patterns
-- If mentioning energy → get energy patterns
-- If exploring → get exploration insights
+**Confidence Scoring:**
+- New observation: Start at 50%
+- More observations: Confidence increases
+- High confidence (80%+): Used prominently in responses
+- Low confidence (<50%): Triggers exploration mode
 
 ---
 
-### 3. **REAL-TIME LEARNING** 🔄
-Location: `MEMORY_AND_LEARNING_ARCHITECTURE.py`
+### 3. **REAL-TIME LEARNING** 🔄 (Now Working!)
+Location: `app/services/learning_extraction.py`
 
 **Learning Loop:**
 
 ```
-1. User sends message
+1. User sends message (Web or Telegram)
    ↓
 2. Sandy responds  
    ↓
-3. [Interaction Analyzer] extracts insights:
-   - Did user complete something? → completion_triggers
-   - Did user deflect? → avoidance_patterns  
-   - Did user engage deeply? → communication_style
-   - Time of activity? → productivity_time
+3. [extract_and_save_learnings()] analyzes:
+   - User's exact words
+   - Sandy's approach
+   - Any actions taken
+   - Emotional indicators
    ↓
-4. [Database Update] applies learnings:
-   - New pattern → Add with confidence 50%
-   - Existing pattern → Increase confidence +5%
+4. Observations saved to database IMMEDIATELY
    ↓
-5. Next response uses updated knowledge
+5. Hypotheses formed after enough observations
+   ↓
+6. Next response uses updated knowledge
 ```
 
-**What Gets Learned:**
-- Completion triggers (what makes you do things)
-- Avoidance patterns (your deflection tactics)
-- Communication style (what engages you)
-- Productivity times (when you're active)
-- Energy patterns (high/low energy triggers)
-- Motivation factors (what gets you moving)
-
-**Confidence Scoring:**
-- New observation: 50-60% confidence
-- Repeated pattern: +5% each time (max 100%)
-- High confidence (80%+) patterns used prominently
+**Applied to:**
+- ✅ Web chat (`app/routers/chat.py`)
+- ✅ Telegram bot (`app/services/telegram_service.py`)
+- ✅ Every single conversation
 
 ---
 
-### 4. **ADAPTIVE BEHAVIOR** 🎯
-Location: `MEMORY_AND_LEARNING_ARCHITECTURE.py`
+### 4. **FEEDBACK SYSTEM** 💬 (New Feature!)
+Location: `app/services/feedback.py`
 
-**Outcome Tracking:**
-
-```
-Sandy tries approach → User responds → Track outcome
+**You can tell Sandy how to improve!**
 
 Examples:
-- Playful push → User did task → ✅ Success
-- Direct question → User deflected → ❌ Didn't work
-- Supportive tone → User opened up → ✅ Success
+```
+You: "Sandy, be more direct with me"
+Sandy: "Got it, adjusting my tone!" [Saves as high-confidence observation]
+
+You: "Remember I work best in mornings"
+Sandy: "Noted! I'll remember that." [Saves to energy_patterns]
+
+You: "Stop asking so many questions"
+Sandy: "Understood, I'll adapt my style!" [Saves to communication_style]
+
+You: "I prefer when you're playful and tease me"
+Sandy: "Got it!" [Updates tone preferences]
 ```
 
-**Adaptation:**
+**How it works:**
+- Detects feedback triggers ("Sandy,", "remember", "be more/less", etc.)
+- Saves as HIGH confidence observation (85%+)
+- Sandy applies it immediately in future responses
+- You can correct her anytime
+
+---
+
+### 5. **EXPLORATION MODE** 🔍
+Location: `app/services/exploration.py`
+
+**Commands:**
+- `/explore` - Let Sandy pick what to learn
+- `/explore [category]` - Explore specific area
+- `/patterns` - See what Sandy knows (80%+ confidence)
+
+**How it works:**
+
+```
+User: "/explore"
+     ↓
+[ExplorationService.pick_next_category()]
+     ├─ Finds area with <3 observations
+     ├─ Or lowest confidence category
+     └─ Returns targeted questions
+     ↓
+Sandy asks natural questions
+     ↓
+User answers normally
+     ↓
+[record_exploration_session()]
+     ├─ Saves each insight as observation
+     ├─ Increases hypothesis confidence +15%
+     └─ Clears "needs exploration" flag at 70%+
+```
+
+**18 Pattern Categories:**
+1. task_initiation
+2. hyperfocus
+3. time_perception
+4. urgency_response
+5. avoidance_reasons
+6. completion_triggers
+7. emotional_regulation
+8. accountability_response
+9. novelty_seeking
+10. transition_difficulty
+11. working_memory
+12. sensory_sensitivity
+13. rejection_sensitivity
+14. impulsivity
+15. overthinking
+16. energy_patterns
+17. social_patterns
+18. executive_dysfunction
+
+---
+
+### 6. **MEMORY INTEGRATION** 🧠
+Location: `app/services/memory.py` (Pinecone)
+
+**How Memory Works:**
+
+```
+Conversation happens
+     ↓
+[Saved to PostgreSQL] ← Short-term storage
+     ↓
+[Saved to Pinecone] ← Long-term vector memory
+     ↓
+Future conversation starts
+     ↓
+[Pinecone search] ← Finds relevant past conversations
+     ↓
+[Context injected] ← Added to Sandy's prompt
+     ↓
+Sandy references past naturally
+```
+
+**Memory Scope:**
+- Works across Web and Telegram
+- Shared session ID: `user_{user_id}_global`
+- No 2-hour time limit (fixed!)
+- Searches semantically (meaning, not keywords)
+
+---
+
+### 7. **CONTEXT BUILDING** 📊
+Location: `app/services/context.py`
+
+**What Sandy Knows Each Response:**
+
 ```python
-if context == "simple_procrastination":
-    best_approach = get_best_approach("simple_procrastination")
-    # Returns: "playful_push" (because it worked 8/10 times)
-    Sandy uses playful teasing
-
-if context == "genuine_struggle":
-    best_approach = get_best_approach("genuine_struggle")
-    # Returns: "supportive" (because it worked 9/10 times)
-    Sandy uses empathetic support
+context = {
+    'tasks': [...],           # Current tasks
+    'projects': [...],        # Active projects
+    'capacity_analysis': {    # Workload vs availability
+        'available_hours': 56,
+        'required_hours': 180
+    },
+    'learned_patterns': [     # High-confidence patterns
+        {
+            'category': 'task_initiation',
+            'hypothesis': 'Starts tasks after accountability check',
+            'confidence': 85
+        }
+    ],
+    'exploration_status': [...] # What needs learning
+}
 ```
-
-**Result:**
-Sandy learns what ACTUALLY WORKS with you specifically, not generic advice.
 
 ---
 
 ## The Complete Flow
 
-### Example Interaction:
-
-**User:** "I need to email the accountant"
+### Example: User Says "I should email the accountant"
 
 **Behind the scenes:**
 
-1. **Context Builder** retrieves:
-   - Task mentioned 3 times this week (pattern recognition)
-   - User responds well to direct push (learned pattern)
-   - Morning time = high productivity (learned pattern)
+1. **Feedback Detection**
+   - Not feedback (no trigger words)
+   - Continue normally
 
-2. **Memory Injection** into prompt:
+2. **Context Builder** retrieves:
+   - Task mentioned 3 times this week (from conversations)
+   - User responds well to direct push (learned pattern 82%)
+   - Morning time = high productivity (learned pattern 78%)
+
+3. **Memory Search** (Pinecone):
+   - Finds: "User mentioned accountant fear twice before"
+   - Finds: "User completed tasks when given direct push"
+
+4. **Prompt Injection**:
    ```
    LEARNED PATTERNS:
-   - Responds well to playful directness
-   - Mentions tasks 2-3 times before doing
-   - Morning productivity is high
+   - Responds well to playful directness (82%)
+   - Mentions tasks 2-3 times before doing (78%)
+   - Morning productivity is high (75%)
+   
+   CONTEXT:
+   - Mentioned "email accountant" 3 times this week
+   - No other urgent deadlines
    ```
 
-3. **Sandy Responds:**
+5. **Sandy Responds:**
    "You've mentioned the accountant three times this week. What's actually stopping you?"
-   (Uses learned pattern naturally)
 
-4. **User:** "I don't know what to say"
+6. **User:** "I don't know what to say"
 
-5. **Sandy:** "That's the blocker. Want to draft it now or just wing it?"
-   (Diagnostic question based on real issue)
+7. **Learning Extraction** analyzes:
+   - Avoidance detected: "I don't know"
+   - Block identified: Uncertainty about content
+   - Energy level: Normal (no indicators)
 
-6. **User:** "Let's draft it" → Task completed
-
-7. **Learning Extraction:**
+8. **Observations Saved:**
    ```python
-   learnings = [
+   [
        {
-           'category': 'completion_triggers',
-           'pattern': 'Completes tasks when helped with first step',
-           'confidence': 65
+           'category': 'avoidance_reasons',
+           'observation': 'Uses "I don\'t know" when discussing tasks',
+           'confidence': 50
        },
        {
-           'category': 'communication',
-           'pattern': 'Direct questions work better than suggestions',
-           'confidence': 70
+           'category': 'task_initiation',
+           'observation': 'Blocked by uncertainty about task content',
+           'confidence': 50
        }
    ]
    ```
 
-8. **Database Updated** immediately
-
-9. **Next Interaction** uses this new knowledge
+9. **Next Interaction** will use these new observations!
 
 ---
 
@@ -195,27 +306,39 @@ Sandy learns what ACTUALLY WORKS with you specifically, not generic advice.
 - Doesn't improve over time
 
 ### Sandy:
-- Remembers YOUR patterns
-- Learns what works WITH YOU specifically
-- Adapts approach based on outcomes
-- Gets better every single day
+- Remembers YOUR patterns ✅
+- Learns what works WITH YOU specifically ✅
+- Adapts approach based on observations ✅
+- Accepts feedback and changes ✅
+- Gets better every single day ✅
 
 ---
 
 ## Implementation Status
 
-✅ **Database Schema:** Complete
-✅ **Exploration System:** Live
-✅ **Comprehensive Prompt:** Written
-✅ **Learning Architecture:** Designed
+### ✅ Fully Working:
+- System prompt loading from .md files
+- Pattern learning system
+- Real-time observation extraction
+- Memory integration (Pinecone)
+- Exploration mode
+- Feedback system
+- Web chat integration
+- Telegram bot integration
+- Context building
+- Hypothesis formation
 
-🔨 **TODO (Next Steps):**
-1. Integrate comprehensive prompt into `ai.py`
-2. Implement RealTimeLearning class
-3. Add memory injection to context builder
-4. Create interaction analyzer
-5. Build outcome tracker
-6. Test and refine learning loop
+### ⚠️ Needs More Data:
+- Pattern confidence (need conversations)
+- Hypothesis refinement (need observations)
+- Outcome tracking (future enhancement)
+
+### 🔨 Future Enhancements:
+- Outcome success tracking (what approaches actually worked)
+- Pattern subcategories (more granular learning)
+- Multi-user comparison (anonymized pattern insights)
+- Adaptive question generation
+- Predictive task suggestions
 
 ---
 
@@ -226,21 +349,53 @@ Sandy learns what ACTUALLY WORKS with you specifically, not generic advice.
 - No learning from outcomes
 - Same behavior for everyone
 
-**Sandy is STATEFUL:**
-- Remembers everything
-- Learns from every interaction
-- Adapts to YOUR specific patterns
-- Becomes YOUR personal Sandy
+**Sandy is STATEFUL & ADAPTIVE:**
+- Remembers everything ✅
+- Learns from every interaction ✅
+- Adapts to YOUR specific patterns ✅
+- You can give her feedback and she changes ✅
+- Becomes YOUR personal Sandy ✅
 
 **Result:** An assistant that actually gets better at serving YOU specifically, not just responding well in general.
 
 ---
 
-## Files Created
+## Files Overview
 
-1. `SANDY_SYSTEM_PROMPT_FULL.md` - Comprehensive personality & rules (337 lines)
-2. `SANDY_SYSTEM_PROMPT_PART2.md` - Actions, learning, advanced examples (321 lines)
-3. `MEMORY_AND_LEARNING_ARCHITECTURE.py` - Technical implementation guide (448 lines)
-4. `README_ARCHITECTURE.md` - This file (summary & overview)
+**System Prompt:**
+- `SANDY_SYSTEM_PROMPT_FULL.md` - Core personality & rules (337 lines)
+- `SANDY_SYSTEM_PROMPT_PART2.md` - Actions, learning, examples (321 lines)
 
-**Total:** 1,100+ lines of detailed specifications for making Sandy genuinely intelligent.
+**Core Services:**
+- `app/services/ai.py` - Loads prompts, builds responses
+- `app/services/pattern_learning.py` - Main learning engine
+- `app/services/learning_extraction.py` - Extract insights from conversations
+- `app/services/feedback.py` - Handle user feedback to Sandy
+- `app/services/exploration.py` - Exploration mode management
+- `app/services/context.py` - Build context for each response
+- `app/services/memory.py` - Pinecone long-term memory
+
+**Interfaces:**
+- `app/routers/chat.py` - Web chat endpoint
+- `app/services/telegram_service.py` - Telegram bot
+
+**Database Models:**
+- `app/models/pattern_tracking.py` - PatternCategory, PatternObservation, PatternHypothesis
+
+---
+
+## How to Give Sandy Feedback
+
+Just talk to her naturally:
+
+- **"Sandy, be more direct"** → She adjusts tone
+- **"Remember I work best in mornings"** → Saved to patterns
+- **"Stop asking so many questions"** → Changes style
+- **"I prefer when you tease me"** → Updates personality
+- **"Don't forget I hate long lists"** → Communication preference saved
+
+She'll acknowledge and adapt immediately!
+
+---
+
+**Total:** 1,500+ lines of specifications + working implementation for making Sandy genuinely intelligent and adaptive.

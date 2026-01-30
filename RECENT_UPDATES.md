@@ -257,6 +257,14 @@ VITE_API_URL=https://sandy-adhd-coach-production.up.railway.app
 
 ## 🎯 **WHAT'S NEXT / KNOWN ISSUES**
 
+### 🚨 CRITICAL (Blocking Core Features)
+- [ ] **FIX: Sandy has no time connection** ⚠️
+  - She doesn't know what time it is
+  - Can't send 9 AM daily update
+  - Can't create timed reminders properly ("tomorrow at 12", "in 8 minutes", "Thursday at 14:22")
+  - Needs timezone awareness (Europe/Stockholm)
+  - Needs current time in every conversation context
+
 ### Priority Items (Jan 30, 2026)
 - [ ] **Rebuild Web UI** - Not chat interface, but control panel:
   - File upload capability

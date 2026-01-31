@@ -7,7 +7,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional
 from telegram import Bot
-from .time_intelligence import get_current_time, get_next_9am, should_send_daily_update
+from .time_intelligence import TimeIntelligence
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +71,7 @@ class ReminderScheduler:
         try:
             from ..models.reminder import Reminder
             
-            now = get_current_time()
+            now = TimeIntelligence.now()
             
             # Find reminders that are due (within the next check_interval seconds)
             due_window = now + timedelta(seconds=self.check_interval)
@@ -116,13 +116,14 @@ class ReminderScheduler:
     
     async def _check_daily_update(self):
         """Check if it's time for the 9 AM daily update"""
-        now = get_current_time()
+        now = TimeIntelligence.now()
         
         # Only check once per day around 9 AM
         if self._last_9am_check and self._last_9am_check.date() == now.date():
             return  # Already checked today
         
-        if should_send_daily_update():
+        # Check if it's 9 AM (within 5 minute window since we check every 60s)
+        if now.hour == 9 and now.minute < 5:
             self._last_9am_check = now
             await self._send_daily_updates()
     

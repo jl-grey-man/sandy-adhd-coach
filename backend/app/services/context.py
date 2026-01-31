@@ -226,3 +226,49 @@ def format_context_for_prompt(context: dict) -> str:
         lines.append("")
     
     return "\n".join(lines)
+
+
+async def handle_ai_actions(response: str, user_id: int, db: Session) -> str:
+    """
+    Parse and execute AI actions from Sandy's response.
+    Currently supports: reminder creation
+    
+    Returns the response with action results injected.
+    """
+    import re
+    from app.services.ai_actions import create_reminder_action
+    
+    # Find all reminder creation actions
+    pattern = r'<ai_action type="create_reminder">\s*<task>(.*?)</task>\s*<time>(.*?)</time>(?:\s*<context>(.*?)</context>)?\s*</ai_action>'
+    matches = re.findall(pattern, response, re.DOTALL)
+    
+    for task, time_expr, context in matches:
+        task = task.strip()
+        time_expr = time_expr.strip()
+        context_str = context.strip() if context else None
+        
+        # Create the reminder
+        result = await create_reminder_action(
+            db_session=db,
+            user_id=user_id,
+            task=task,
+            time_expression=time_expr,
+            context=context_str
+        )
+        
+        # Build result message
+        if result['success']:
+            result_msg = f"✓ {result['message']}"
+        else:
+            result_msg = f"✗ Couldn't set reminder: {result['error']}"
+        
+        # Find and replace the XML tags with result
+        action_xml = f'<ai_action type="create_reminder"><task>{task}</task><time>{time_expr}</time>'
+        if context_str:
+            action_xml += f'<context>{context_str}</context>'
+        action_xml += '</ai_action>'
+        
+        response = response.replace(action_xml, result_msg)
+    
+    return response
+

@@ -338,6 +338,10 @@ class TelegramService:
             
             logger.info(f"Cleaned response: {clean_response}")
             
+            # HANDLE AI ACTIONS (like reminder creation)
+            from app.services.context import handle_ai_actions
+            clean_response = await handle_ai_actions(clean_response, user.id, db)
+            
             # SEND HUMAN RESPONSE FIRST
             if clean_response:
                 await update.message.reply_text(clean_response)

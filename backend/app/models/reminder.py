@@ -9,8 +9,19 @@ class Reminder(Base):
     __tablename__ = "reminders"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    message = Column(Text, nullable=False)
-    remind_at = Column(DateTime, nullable=False, index=True)
-    sent = Column(Boolean, default=False, nullable=False, index=True)
-    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    user_id = Column(Integer, nullable=False, index=True)  # Telegram user ID directly
+    
+    # Content
+    task = Column(Text, nullable=False)  # What to remind about (was 'message')
+    context = Column(Text, nullable=True)  # Why this reminder was created
+    
+    # Timing (timezone-aware)
+    reminder_time = Column(DateTime(timezone=True), nullable=False, index=True)  # was 'remind_at'
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    
+    # Status
+    is_sent = Column(Boolean, default=False, nullable=False, index=True)  # was 'sent'
+    sent_at = Column(DateTime(timezone=True), nullable=True)
+    
+    def __repr__(self):
+        return f"<Reminder(id={self.id}, user={self.user_id}, task='{self.task[:30]}...', time={self.reminder_time})>"

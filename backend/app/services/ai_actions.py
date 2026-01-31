@@ -1,309 +1,242 @@
-"""AI Actions - extract and execute structured actions from AI responses."""
-import json
-import re
-from datetime import datetime, timedelta
+"""
+AI Actions Service - Updated with Time Intelligence
+Handles reminder creation with natural language time parsing
+"""
+from datetime import datetime
 from typing import Optional, Dict, Any
-from sqlalchemy.orm import Session
+import logging
+from .time_intelligence import parse_reminder_time, format_time_friendly, get_current_time
 
-from app.models.project import Project, ProjectStatus
-from app.models.task import Task, TaskStatus, TaskPriority, TaskEnergyLevel
-from app.models.backburner import BackburnerItem
-from app.models.reminder import Reminder
+logger = logging.getLogger(__name__)
 
 
-def extract_actions_from_response(ai_response: str) -> list[dict]:
-    """
-    Extract structured actions from AI response.
+class AIActionsService:
+    """Handles AI-initiated actions like reminder creation"""
     
-    The AI can embed JSON actions in its response like:
-    ```action
-    {"type": "create_project", "title": "Launch Website", "deadline": "2026-02-10"}
-    ```
+    def __init__(self, db_session):
+        self.db = db_session
     
-    Returns list of action dicts.
+    async def create_reminder(
+        self,
+        user_id: int,
+        task: str,
+        time_expression: str,
+        context: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Create a reminder with natural language time parsing.
+        
+        Args:
+            user_id: User's Telegram ID
+            task: What to remind about
+            time_expression: Natural language time (e.g., "tomorrow at 12", "in 30 minutes")
+            context: Optional context about why this reminder was created
+        
+        Returns:
+            Dict with success status, reminder details, and any errors
+        """
+        try:
+            # Parse the time expression
+            reminder_time = parse_reminder_time(time_expression)
+            
+            if reminder_time is None:
+                return {
+                    "success": False,
+                    "error": f"Couldn't understand the time '{time_expression}'. Try formats like 'tomorrow at 12:00', 'in 30 minutes', or 'Thursday at 14:22'"
+                }
+            
+            # Ensure reminder is in the future
+            now = get_current_time()
+            if reminder_time <= now:
+                return {
+                    "success": False,
+                    "error": f"That time has already passed. Current time is {now.strftime('%H:%M')}"
+                }
+            
+            # Store in database
+            from ..models.reminder import Reminder
+            
+            reminder = Reminder(
+                user_id=user_id,
+                task=task,
+                reminder_time=reminder_time,
+                context=context,
+                created_at=now,
+                is_sent=False
+            )
+            
+            self.db.add(reminder)
+            self.db.commit()
+            self.db.refresh(reminder)
+            
+            # Format friendly response
+            friendly_time = format_time_friendly(reminder_time)
+            
+            logger.info(f"Created reminder for user {user_id}: '{task}' at {reminder_time}")
+            
+            return {
+                "success": True,
+                "reminder_id": reminder.id,
+                "task": task,
+                "reminder_time": reminder_time.isoformat(),
+                "friendly_time": friendly_time,
+                "message": f"Got it! I'll remind you about '{task}' {friendly_time}."
+            }
+            
+        except Exception as e:
+            logger.error(f"Error creating reminder: {e}", exc_info=True)
+            return {
+                "success": False,
+                "error": f"Failed to create reminder: {str(e)}"
+            }
+    
+    async def list_reminders(self, user_id: int, include_past: bool = False) -> Dict[str, Any]:
+        """List all reminders for a user"""
+        try:
+            from ..models.reminder import Reminder
+            
+            query = self.db.query(Reminder).filter(Reminder.user_id == user_id)
+            
+            if not include_past:
+                now = get_current_time()
+                query = query.filter(Reminder.reminder_time > now)
+            
+            reminders = query.order_by(Reminder.reminder_time).all()
+            
+            reminder_list = []
+            for r in reminders:
+                reminder_list.append({
+                    "id": r.id,
+                    "task": r.task,
+                    "time": r.reminder_time.isoformat(),
+                    "friendly_time": format_time_friendly(r.reminder_time),
+                    "is_sent": r.is_sent
+                })
+            
+            return {
+                "success": True,
+                "count": len(reminder_list),
+                "reminders": reminder_list
+            }
+            
+        except Exception as e:
+            logger.error(f"Error listing reminders: {e}", exc_info=True)
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    async def delete_reminder(self, user_id: int, reminder_id: int) -> Dict[str, Any]:
+        """Delete a reminder"""
+        try:
+            from ..models.reminder import Reminder
+            
+            reminder = self.db.query(Reminder).filter(
+                Reminder.id == reminder_id,
+                Reminder.user_id == user_id
+            ).first()
+            
+            if not reminder:
+                return {
+                    "success": False,
+                    "error": "Reminder not found"
+                }
+            
+            task = reminder.task
+            self.db.delete(reminder)
+            self.db.commit()
+            
+            return {
+                "success": True,
+                "message": f"Deleted reminder: '{task}'"
+            }
+            
+        except Exception as e:
+            logger.error(f"Error deleting reminder: {e}", exc_info=True)
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
+
+# Function-based interface for backward compatibility
+async def create_reminder_action(
+    db_session,
+    user_id: int,
+    task: str,
+    time_expression: str,
+    context: Optional[str] = None
+) -> Dict[str, Any]:
+    """Create a reminder with natural language time parsing"""
+    service = AIActionsService(db_session)
+    return await service.create_reminder(user_id, task, time_expression, context)
+
+
+def extract_actions_from_response(response: str) -> list:
     """
+    Extract AI action tags from Sandy's response.
+    
+    Looks for: <ai_action type="create_reminder">...</ai_action>
+    
+    Returns list of action dicts with parsed data
+    """
+    import re
+    
     actions = []
     
-    # Look for ```action blocks
-    action_pattern = r'```action\s*\n(.*?)\n```'
-    matches = re.findall(action_pattern, ai_response, re.DOTALL)
+    # Pattern for reminder actions
+    pattern = r'<ai_action type="create_reminder">\s*<task>(.*?)</task>\s*<time>(.*?)</time>(?:\s*<context>(.*?)</context>)?\s*</ai_action>'
+    matches = re.findall(pattern, response, re.DOTALL)
     
-    for match in matches:
-        try:
-            action = json.loads(match.strip())
-            actions.append(action)
-        except json.JSONDecodeError:
-            continue
+    for task, time_expr, context in matches:
+        actions.append({
+            "type": "create_reminder",
+            "task": task.strip(),
+            "time": time_expr.strip(),
+            "context": context.strip() if context else None
+        })
     
     return actions
 
 
-def execute_action(action: dict, user_id: int, db: Session) -> Dict[str, Any]:
+def execute_action(action: dict, user_id: int, db_session) -> Dict[str, Any]:
     """
-    Execute a structured action from the AI.
+    Execute an AI action and return result.
     
-    Returns a dict with:
-    - success: bool
-    - action_type: str
-    - details: dict (for Telegram confirmation)
-    - error: str (if failed)
+    Currently supports:
+    - create_reminder: Create a new reminder
+    
+    Returns dict with success status and details
     """
+    import asyncio
+    
     action_type = action.get("type")
     
-    try:
-        if action_type == "create_project":
-            return _create_project(action, user_id, db)
-        
-        elif action_type == "create_task":
-            return _create_task(action, user_id, db)
-        
-        elif action_type == "create_reminder":
-            return _create_reminder(action, user_id, db)
-        
-        elif action_type == "move_to_backburner":
-            return _move_to_backburner(action, user_id, db)
-        
-        elif action_type == "complete_task":
-            return _complete_task(action, user_id, db)
-        
-        else:
-            return {
-                "success": False,
-                "action_type": action_type,
-                "error": f"Unknown action type: {action_type}"
-            }
-    
-    except Exception as e:
-        return {
-            "success": False,
-            "action_type": action_type,
-            "error": str(e)
-        }
-
-
-def _create_project(action: dict, user_id: int, db: Session) -> Dict[str, Any]:
-    """Create a new project."""
-    title = action.get("title")
-    description = action.get("description")
-    deadline_str = action.get("deadline")
-    estimated_hours = action.get("estimated_hours")
-    
-    # Parse deadline
-    deadline = None
-    if deadline_str:
+    if action_type == "create_reminder":
+        # Run async function synchronously
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         try:
-            deadline = datetime.fromisoformat(deadline_str)
-        except:
-            # Try parsing relative dates like "in 2 weeks"
-            pass
-    
-    project = Project(
-        user_id=user_id,
-        title=title,
-        description=description,
-        deadline=deadline,
-        estimated_hours=estimated_hours,
-        status=ProjectStatus.ACTIVE
-    )
-    
-    db.add(project)
-    db.commit()
-    db.refresh(project)
-    
-    return {
-        "success": True,
-        "action_type": "create_project",
-        "details": {
-            "title": project.title,
-            "description": project.description,
-            "deadline": project.deadline.isoformat() if project.deadline else None,
-            "estimated_hours": project.estimated_hours,
-            "project_id": project.id
-        }
-    }
-
-
-def _create_task(action: dict, user_id: int, db: Session) -> Dict[str, Any]:
-    """Create a new task."""
-    title = action.get("title")
-    description = action.get("description")
-    project_id = action.get("project_id")
-    priority_str = action.get("priority")  # May be None
-    energy_level_str = action.get("energy_level")  # May be None
-    estimated_minutes = action.get("estimated_minutes")
-    due_date_str = action.get("due_date")
-    
-    # Parse priority (only if explicitly provided)
-    priority = None
-    if priority_str:
-        try:
-            priority = TaskPriority(priority_str.lower())
-        except:
-            pass
-    
-    # Parse energy level (only if explicitly provided)
-    energy_level = None
-    if energy_level_str:
-        try:
-            energy_level = TaskEnergyLevel(energy_level_str.lower())
-        except:
-            pass
-    
-    # Parse due date
-    due_date = None
-    if due_date_str:
-        try:
-            due_date = datetime.fromisoformat(due_date_str)
-        except:
-            pass
-    
-    task = Task(
-        user_id=user_id,
-        project_id=project_id,
-        title=title,
-        description=description,
-        priority=priority,
-        energy_level=energy_level,
-        estimated_minutes=estimated_minutes,
-        due_date=due_date,
-        status=TaskStatus.TODO
-    )
-    
-    db.add(task)
-    db.commit()
-    db.refresh(task)
-    
-    return {
-        "success": True,
-        "action_type": "create_task",
-        "details": {
-            "title": task.title,
-            "description": task.description,
-            "priority": task.priority.value,
-            "energy_level": task.energy_level.value,
-            "estimated_minutes": task.estimated_minutes,
-            "due_date": task.due_date.isoformat() if task.due_date else None,
-            "task_id": task.id
-        }
-    }
-
-
-def _move_to_backburner(action: dict, user_id: int, db: Session) -> Dict[str, Any]:
-    """Move something to backburner (or create backburner item)."""
-    title = action.get("title")
-    description = action.get("description")
-    reason = action.get("reason")
-    context_tags = action.get("context_tags", [])
-    project_id = action.get("project_id")
-    
-    # If project_id provided, move existing project to backburner
-    if project_id:
-        project = db.query(Project).filter(
-            Project.id == project_id,
-            Project.user_id == user_id
-        ).first()
-        
-        if project:
-            project.status = ProjectStatus.BACKBURNER
-            project.moved_to_backburner_at = datetime.utcnow()
-            project.backburner_reason = reason
-            db.commit()
+            result = loop.run_until_complete(
+                create_reminder_action(
+                    db_session=db_session,
+                    user_id=user_id,
+                    task=action["task"],
+                    time_expression=action["time"],
+                    context=action.get("context")
+                )
+            )
             
             return {
-                "success": True,
-                "action_type": "move_to_backburner",
-                "details": {
-                    "title": project.title,
-                    "reason": reason,
-                    "type": "project"
-                }
+                "success": result["success"],
+                "action_type": "create_reminder",
+                "details": result
             }
-    
-    # Otherwise create new backburner item
-    item = BackburnerItem(
-        user_id=user_id,
-        title=title,
-        description=description,
-        reason=reason,
-        context_tags=context_tags
-    )
-    
-    db.add(item)
-    db.commit()
-    db.refresh(item)
+        finally:
+            loop.close()
     
     return {
-        "success": True,
-        "action_type": "move_to_backburner",
-        "details": {
-            "title": item.title,
-            "description": item.description,
-            "reason": item.reason,
-            "type": "idea"
-        }
-    }
-
-
-def _complete_task(action: dict, user_id: int, db: Session) -> Dict[str, Any]:
-    """Mark a task as complete."""
-    task_id = action.get("task_id")
-    
-    task = db.query(Task).filter(
-        Task.id == task_id,
-        Task.user_id == user_id
-    ).first()
-    
-    if not task:
-        return {
-            "success": False,
-            "action_type": "complete_task",
-            "error": "Task not found"
-        }
-    
-    task.status = TaskStatus.DONE
-    task.completed_at = datetime.utcnow()
-    db.commit()
-    
-    return {
-        "success": True,
-        "action_type": "complete_task",
-        "details": {
-            "title": task.title,
-            "task_id": task.id
-        }
-    }
-
-
-def _create_reminder(action: dict, user_id: int, db: Session) -> Dict[str, Any]:
-    """Create a reminder (notification, not a task)."""
-    message = action.get("message")
-    minutes_from_now = action.get("minutes_from_now", 5)
-    
-    # Calculate remind_at time in UTC
-    remind_at_utc = datetime.utcnow() + timedelta(minutes=minutes_from_now)
-    
-    # Convert to Swedish time for display
-    import pytz
-    sweden_tz = pytz.timezone('Europe/Stockholm')
-    remind_at_sweden = remind_at_utc.replace(tzinfo=pytz.utc).astimezone(sweden_tz)
-    
-    reminder = Reminder(
-        user_id=user_id,
-        message=message,
-        remind_at=remind_at_utc,
-        sent=False
-    )
-    
-    db.add(reminder)
-    db.commit()
-    db.refresh(reminder)
-    
-    return {
-        "success": True,
-        "action_type": "create_reminder",
-        "details": {
-            "message": message,
-            "remind_at": remind_at_sweden.strftime("%H:%M"),
-            "minutes": minutes_from_now
-        }
+        "success": False,
+        "action_type": action_type,
+        "details": {"error": f"Unknown action type: {action_type}"}
     }

@@ -10,6 +10,7 @@ from app.models.checkin import Checkin
 from app.models.wheel import WheelCategory, WheelScore
 from app.models.calendar import CalendarEvent
 from app.models.metric import Metric, ConversationEmbedding
+from app.models.reminder import Reminder
 
 __all__ = [
     "User",
@@ -26,4 +27,5 @@ __all__ = [
     "CalendarEvent",
     "Metric",
     "ConversationEmbedding",
+    "Reminder",
 ]

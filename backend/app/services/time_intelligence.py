@@ -1,275 +1,180 @@
-"""Time Intelligence - calculate available time, detect conflicts, manage capacity."""
+"""
+Time Intelligence Service for Sandy
+Handles timezone-aware time parsing and reminder scheduling
+"""
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
-from sqlalchemy.orm import Session
-from sqlalchemy import and_
+from typing import Optional, Tuple
+import re
+from zoneinfo import ZoneInfo
 
-from app.models.project import Project, ProjectStatus
-from app.models.task import Task, TaskStatus
-from app.models.milestone import Milestone
+# User timezone - Sweden
+USER_TIMEZONE = ZoneInfo("Europe/Stockholm")
 
 
-class TimeIntelligence:
-    """Analyzes time commitments and capacity."""
+def get_current_time() -> datetime:
+    """Get current time in user's timezone (Sweden)"""
+    return datetime.now(USER_TIMEZONE)
+
+
+def parse_reminder_time(text: str, reference_time: Optional[datetime] = None) -> Optional[datetime]:
+    """
+    Parse natural language time expressions into datetime objects.
     
-    def __init__(self, user_id: int, db: Session):
-        self.user_id = user_id
-        self.db = db
+    Handles:
+    - "in X minutes/hours/days"
+    - "tomorrow at HH:MM"
+    - "Monday/Tuesday/etc at HH:MM"
+    - "at HH:MM" (today)
+    - "YYYY-MM-DD HH:MM"
     
-    def analyze_project_feasibility(self, project_id: int) -> Dict:
-        """
-        Analyze if a project is feasible given current workload.
+    Args:
+        text: Natural language time expression
+        reference_time: Reference datetime (defaults to current time in Sweden)
+    
+    Returns:
+        datetime object in Sweden timezone, or None if parsing fails
+    """
+    if reference_time is None:
+        reference_time = get_current_time()
+    
+    text = text.lower().strip()
+    
+    # Pattern: "in X minutes/hours/days/weeks"
+    relative_match = re.search(r'in\s+(\d+)\s+(minute|hour|day|week)s?', text)
+    if relative_match:
+        amount = int(relative_match.group(1))
+        unit = relative_match.group(2)
         
-        Returns:
-            - is_feasible: bool
-            - hours_needed: int
-            - hours_available: int
-            - conflicts: list of conflicting projects
-            - recommendation: str
-        """
-        project = self.db.query(Project).filter(
-            Project.id == project_id,
-            Project.user_id == self.user_id
-        ).first()
+        if unit == 'minute':
+            return reference_time + timedelta(minutes=amount)
+        elif unit == 'hour':
+            return reference_time + timedelta(hours=amount)
+        elif unit == 'day':
+            return reference_time + timedelta(days=amount)
+        elif unit == 'week':
+            return reference_time + timedelta(weeks=amount)
+    
+    # Pattern: "tomorrow at HH:MM" or "tomorrow HH:MM"
+    tomorrow_match = re.search(r'tomorrow\s+(?:at\s+)?(\d{1,2})[:.h](\d{2})', text)
+    if tomorrow_match:
+        hour = int(tomorrow_match.group(1))
+        minute = int(tomorrow_match.group(2))
+        target = reference_time.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        target += timedelta(days=1)
+        return target
+    
+    # Pattern: "Monday/Tuesday/etc at HH:MM"
+    days_of_week = {
+        'monday': 0, 'mon': 0, 'måndag': 0,
+        'tuesday': 1, 'tue': 1, 'tisdag': 1,
+        'wednesday': 2, 'wed': 2, 'onsdag': 2,
+        'thursday': 3, 'thu': 3, 'torsdag': 3,
+        'friday': 4, 'fri': 4, 'fredag': 4,
+        'saturday': 5, 'sat': 5, 'lördag': 5,
+        'sunday': 6, 'sun': 6, 'söndag': 6,
+    }
+    
+    for day_name, day_num in days_of_week.items():
+        day_pattern = rf'{day_name}\s+(?:at\s+)?(\d{{1,2}})[:.h](\d{{2}})'
+        day_match = re.search(day_pattern, text)
+        if day_match:
+            hour = int(day_match.group(1))
+            minute = int(day_match.group(2))
+            
+            # Calculate days until target day
+            current_day = reference_time.weekday()
+            days_ahead = day_num - current_day
+            if days_ahead <= 0:  # Target day is today or has passed this week
+                days_ahead += 7  # Move to next week
+            
+            target = reference_time.replace(hour=hour, minute=minute, second=0, microsecond=0)
+            target += timedelta(days=days_ahead)
+            return target
+    
+    # Pattern: "at HH:MM" or just "HH:MM" (today)
+    time_match = re.search(r'(?:at\s+)?(\d{1,2})[:.h](\d{2})', text)
+    if time_match:
+        hour = int(time_match.group(1))
+        minute = int(time_match.group(2))
+        target = reference_time.replace(hour=hour, minute=minute, second=0, microsecond=0)
         
-        if not project or not project.deadline:
-            return {"is_feasible": None, "reason": "No deadline set"}
-        
-        # Calculate days until deadline
-        days_until = (project.deadline - datetime.utcnow()).days
-        
-        if days_until < 0:
-            return {
-                "is_feasible": False,
-                "reason": "Deadline has passed",
-                "recommendation": "Update deadline or move to backburner"
-            }
-        
-        # Get hours needed
-        hours_needed = project.estimated_hours or 0
-        
-        # Calculate available hours (assume 4 productive hours per day for ADHD)
-        available_hours_total = days_until * 4
-        
-        # Get other active projects competing for time
-        other_projects = self.db.query(Project).filter(
-            and_(
-                Project.user_id == self.user_id,
-                Project.id != project_id,
-                Project.status == ProjectStatus.ACTIVE,
-                Project.deadline.isnot(None),
-                Project.deadline <= project.deadline
-            )
-        ).all()
-        
-        # Calculate committed hours
-        committed_hours = sum(p.estimated_hours or 0 for p in other_projects)
-        
-        # Available hours for THIS project
-        available_hours = available_hours_total - committed_hours
-        
-        # Check feasibility
-        is_feasible = available_hours >= hours_needed
-        
-        conflicts = []
-        if not is_feasible:
-            for p in other_projects:
-                conflicts.append({
-                    "project": p.title,
-                    "deadline": p.deadline.strftime("%Y-%m-%d"),
-                    "hours": p.estimated_hours
-                })
-        
-        # Generate recommendation
-        if is_feasible:
-            recommendation = f"Feasible. You have {available_hours}h available for {hours_needed}h of work."
+        # If time has passed today, assume tomorrow
+        if target <= reference_time:
+            target += timedelta(days=1)
+        return target
+    
+    # Pattern: ISO format "YYYY-MM-DD HH:MM"
+    iso_match = re.search(r'(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2})[:.h](\d{2})', text)
+    if iso_match:
+        year = int(iso_match.group(1))
+        month = int(iso_match.group(2))
+        day = int(iso_match.group(3))
+        hour = int(iso_match.group(4))
+        minute = int(iso_match.group(5))
+        return datetime(year, month, day, hour, minute, tzinfo=USER_TIMEZONE)
+    
+    return None
+
+
+def format_time_friendly(dt: datetime) -> str:
+    """Format datetime in a friendly way for display"""
+    now = get_current_time()
+    
+    # Calculate time difference
+    diff = dt - now
+    
+    # If it's today
+    if dt.date() == now.date():
+        return f"today at {dt.strftime('%H:%M')}"
+    
+    # If it's tomorrow
+    if dt.date() == (now + timedelta(days=1)).date():
+        return f"tomorrow at {dt.strftime('%H:%M')}"
+    
+    # If within the next week
+    if 0 < diff.days <= 7:
+        day_name = dt.strftime('%A')
+        return f"{day_name} at {dt.strftime('%H:%M')}"
+    
+    # Otherwise show date
+    return dt.strftime('%Y-%m-%d at %H:%M')
+
+
+def should_send_daily_update() -> bool:
+    """Check if it's time for the 9 AM daily update"""
+    now = get_current_time()
+    return now.hour == 9 and now.minute < 5  # 5-minute window
+
+
+def get_next_9am() -> datetime:
+    """Get the next 9 AM time in Sweden timezone"""
+    now = get_current_time()
+    next_9am = now.replace(hour=9, minute=0, second=0, microsecond=0)
+    
+    if now.hour >= 9:
+        next_9am += timedelta(days=1)
+    
+    return next_9am
+
+
+# Example usage and tests
+if __name__ == "__main__":
+    now = get_current_time()
+    print(f"Current time in Sweden: {now}")
+    
+    test_cases = [
+        "in 5 minutes",
+        "in 2 hours",
+        "tomorrow at 12:00",
+        "Thursday at 14:22",
+        "at 15:30",
+        "monday at 9:00"
+    ]
+    
+    print("\nTest cases:")
+    for test in test_cases:
+        result = parse_reminder_time(test)
+        if result:
+            print(f"'{test}' -> {format_time_friendly(result)} ({result})")
         else:
-            shortfall = hours_needed - available_hours
-            recommendation = f"Overloaded by {shortfall}h. Consider moving '{project.title}' to backburner or pushing deadline."
-        
-        return {
-            "is_feasible": is_feasible,
-            "hours_needed": hours_needed,
-            "hours_available": available_hours,
-            "days_until_deadline": days_until,
-            "conflicts": conflicts,
-            "recommendation": recommendation
-        }
-    
-    def get_capacity_summary(self) -> Dict:
-        """
-        Get overall capacity summary for user.
-        
-        Returns current workload vs. realistic capacity.
-        """
-        # Get all active projects with deadlines
-        projects = self.db.query(Project).filter(
-            and_(
-                Project.user_id == self.user_id,
-                Project.status == ProjectStatus.ACTIVE,
-                Project.deadline.isnot(None)
-            )
-        ).order_by(Project.deadline.asc()).all()
-        
-        if not projects:
-            return {
-                "status": "clear",
-                "message": "No active projects with deadlines"
-            }
-        
-        # Find earliest deadline
-        earliest_deadline = projects[0].deadline
-        days_until = (earliest_deadline - datetime.utcnow()).days
-        
-        # Calculate total hours needed
-        total_hours = sum(p.estimated_hours or 0 for p in projects)
-        
-        # Available hours (4 productive hours/day)
-        available_hours = days_until * 4
-        
-        if total_hours <= available_hours:
-            return {
-                "status": "healthy",
-                "message": f"Manageable workload: {total_hours}h needed, {available_hours}h available",
-                "total_hours": total_hours,
-                "available_hours": available_hours,
-                "utilization": round(total_hours / available_hours * 100, 1)
-            }
-        else:
-            overload = total_hours - available_hours
-            return {
-                "status": "overloaded",
-                "message": f"Overloaded: {total_hours}h needed but only {available_hours}h available",
-                "total_hours": total_hours,
-                "available_hours": available_hours,
-                "overload_hours": overload,
-                "utilization": round(total_hours / available_hours * 100, 1),
-                "recommendation": "Consider moving some projects to backburner"
-            }
-    
-    def suggest_backburner_candidates(self) -> List[Dict]:
-        """
-        Suggest projects that could be moved to backburner.
-        
-        Criteria:
-        - Low recent activity
-        - Flexible deadline
-        - Not time-critical
-        """
-        projects = self.db.query(Project).filter(
-            and_(
-                Project.user_id == self.user_id,
-                Project.status == ProjectStatus.ACTIVE
-            )
-        ).all()
-        
-        candidates = []
-        
-        for project in projects:
-            # Score based on various factors
-            score = 0
-            reasons = []
-            
-            # No deadline = could wait
-            if not project.deadline:
-                score += 2
-                reasons.append("No urgent deadline")
-            
-            # Far deadline = could wait
-            elif project.deadline:
-                days_until = (project.deadline - datetime.utcnow()).days
-                if days_until > 60:
-                    score += 1
-                    reasons.append(f"Deadline is {days_until} days away")
-            
-            # Check task activity
-            tasks = self.db.query(Task).filter(
-                Task.project_id == project.id
-            ).all()
-            
-            if not tasks:
-                score += 1
-                reasons.append("No tasks created yet")
-            elif all(t.status == TaskStatus.TODO for t in tasks):
-                score += 1
-                reasons.append("No tasks started")
-            
-            if score >= 2:
-                candidates.append({
-                    "project_id": project.id,
-                    "project_title": project.title,
-                    "score": score,
-                    "reasons": reasons
-                })
-        
-        # Sort by score
-        candidates.sort(key=lambda x: x["score"], reverse=True)
-        
-        return candidates
-    
-    def generate_milestone_reminders(self, project_id: int) -> List[Dict]:
-        """
-        Generate milestone check-in dates for a project.
-        
-        Strategy:
-        - Weekly check-ins for projects > 2 weeks
-        - Mid-point check-in for projects 1-2 weeks
-        - Daily check-ins for projects < 1 week
-        """
-        project = self.db.query(Project).filter(
-            Project.id == project_id,
-            Project.user_id == self.user_id
-        ).first()
-        
-        if not project or not project.deadline:
-            return []
-        
-        days_until = (project.deadline - datetime.utcnow()).days
-        milestones = []
-        
-        if days_until <= 0:
-            return []
-        
-        elif days_until <= 7:
-            # Daily check-ins for urgent projects
-            for i in range(1, days_until):
-                check_date = datetime.utcnow() + timedelta(days=i)
-                milestones.append({
-                    "date": check_date,
-                    "message": f"Daily check: {project.title} - {days_until - i} days left"
-                })
-        
-        elif days_until <= 14:
-            # Mid-point check-in
-            midpoint = datetime.utcnow() + timedelta(days=days_until // 2)
-            milestones.append({
-                "date": midpoint,
-                "message": f"Halfway point: {project.title}"
-            })
-        
-        else:
-            # Weekly check-ins
-            weeks = days_until // 7
-            for i in range(1, weeks + 1):
-                check_date = datetime.utcnow() + timedelta(weeks=i)
-                milestones.append({
-                    "date": check_date,
-                    "message": f"Week {i} check: {project.title}"
-                })
-        
-        return milestones
-    
-    def create_milestones_for_project(self, project_id: int):
-        """Create milestone records in database."""
-        milestones_data = self.generate_milestone_reminders(project_id)
-        
-        for m_data in milestones_data:
-            milestone = Milestone(
-                project_id=project_id,
-                check_in_date=m_data["date"],
-                message=m_data["message"],
-                completed=False
-            )
-            self.db.add(milestone)
-        
-        self.db.commit()
+            print(f"'{test}' -> Failed to parse")

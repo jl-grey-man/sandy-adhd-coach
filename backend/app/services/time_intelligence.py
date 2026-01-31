@@ -1,180 +1,110 @@
-"""
-Time Intelligence Service for Sandy
-Handles timezone-aware time parsing and reminder scheduling
-"""
+"""Time intelligence service for parsing natural language time expressions."""
 from datetime import datetime, timedelta
-from typing import Optional, Tuple
-import re
 from zoneinfo import ZoneInfo
-
-# User timezone - Sweden
-USER_TIMEZONE = ZoneInfo("Europe/Stockholm")
-
-
-def get_current_time() -> datetime:
-    """Get current time in user's timezone (Sweden)"""
-    return datetime.now(USER_TIMEZONE)
+import re
+from typing import Optional
+from sqlalchemy.orm import Session
 
 
-def parse_reminder_time(text: str, reference_time: Optional[datetime] = None) -> Optional[datetime]:
-    """
-    Parse natural language time expressions into datetime objects.
+class TimeIntelligence:
+    """Parse natural language time expressions into timezone-aware datetime objects."""
     
-    Handles:
-    - "in X minutes/hours/days"
-    - "tomorrow at HH:MM"
-    - "Monday/Tuesday/etc at HH:MM"
-    - "at HH:MM" (today)
-    - "YYYY-MM-DD HH:MM"
+    TIMEZONE = ZoneInfo("Europe/Stockholm")
     
-    Args:
-        text: Natural language time expression
-        reference_time: Reference datetime (defaults to current time in Sweden)
+    def __init__(self, user_id: int, db: Session):
+        """Initialize with user and database context."""
+        self.user_id = user_id
+        self.db = db
     
-    Returns:
-        datetime object in Sweden timezone, or None if parsing fails
-    """
-    if reference_time is None:
-        reference_time = get_current_time()
-    
-    text = text.lower().strip()
-    
-    # Pattern: "in X minutes/hours/days/weeks"
-    relative_match = re.search(r'in\s+(\d+)\s+(minute|hour|day|week)s?', text)
-    if relative_match:
-        amount = int(relative_match.group(1))
-        unit = relative_match.group(2)
+    @classmethod
+    def parse_reminder_time(cls, time_expression: str) -> Optional[datetime]:
+        """
+        Parse natural language time expression into timezone-aware datetime.
         
-        if unit == 'minute':
-            return reference_time + timedelta(minutes=amount)
-        elif unit == 'hour':
-            return reference_time + timedelta(hours=amount)
-        elif unit == 'day':
-            return reference_time + timedelta(days=amount)
-        elif unit == 'week':
-            return reference_time + timedelta(weeks=amount)
-    
-    # Pattern: "tomorrow at HH:MM" or "tomorrow HH:MM"
-    tomorrow_match = re.search(r'tomorrow\s+(?:at\s+)?(\d{1,2})[:.h](\d{2})', text)
-    if tomorrow_match:
-        hour = int(tomorrow_match.group(1))
-        minute = int(tomorrow_match.group(2))
-        target = reference_time.replace(hour=hour, minute=minute, second=0, microsecond=0)
-        target += timedelta(days=1)
-        return target
-    
-    # Pattern: "Monday/Tuesday/etc at HH:MM"
-    days_of_week = {
-        'monday': 0, 'mon': 0, 'måndag': 0,
-        'tuesday': 1, 'tue': 1, 'tisdag': 1,
-        'wednesday': 2, 'wed': 2, 'onsdag': 2,
-        'thursday': 3, 'thu': 3, 'torsdag': 3,
-        'friday': 4, 'fri': 4, 'fredag': 4,
-        'saturday': 5, 'sat': 5, 'lördag': 5,
-        'sunday': 6, 'sun': 6, 'söndag': 6,
-    }
-    
-    for day_name, day_num in days_of_week.items():
-        day_pattern = rf'{day_name}\s+(?:at\s+)?(\d{{1,2}})[:.h](\d{{2}})'
-        day_match = re.search(day_pattern, text)
-        if day_match:
-            hour = int(day_match.group(1))
-            minute = int(day_match.group(2))
-            
-            # Calculate days until target day
-            current_day = reference_time.weekday()
-            days_ahead = day_num - current_day
-            if days_ahead <= 0:  # Target day is today or has passed this week
-                days_ahead += 7  # Move to next week
-            
-            target = reference_time.replace(hour=hour, minute=minute, second=0, microsecond=0)
-            target += timedelta(days=days_ahead)
-            return target
-    
-    # Pattern: "at HH:MM" or just "HH:MM" (today)
-    time_match = re.search(r'(?:at\s+)?(\d{1,2})[:.h](\d{2})', text)
-    if time_match:
-        hour = int(time_match.group(1))
-        minute = int(time_match.group(2))
-        target = reference_time.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        Supported formats:
+        - "in X minutes/hours/days"
+        - "tomorrow at HH:MM"
+        - "Monday/Tuesday/etc at HH:MM"
+        - "at HH:MM" (today)
         
-        # If time has passed today, assume tomorrow
-        if target <= reference_time:
-            target += timedelta(days=1)
-        return target
+        Args:
+            time_expression: Natural language time expression
+            
+        Returns:
+            Timezone-aware datetime object in Europe/Stockholm timezone, or None if parsing fails
+        """
+        time_expression = time_expression.lower().strip()
+        now = datetime.now(cls.TIMEZONE)
+        
+        # Pattern: "in X minutes/hours/days"
+        relative_match = re.match(r'in (\d+)\s*(minute|minutes|hour|hours|day|days)', time_expression)
+        if relative_match:
+            amount = int(relative_match.group(1))
+            unit = relative_match.group(2)
+            
+            if 'minute' in unit:
+                return now + timedelta(minutes=amount)
+            elif 'hour' in unit:
+                return now + timedelta(hours=amount)
+            elif 'day' in unit:
+                return now + timedelta(days=amount)
+        
+        # Pattern: "tomorrow at HH:MM"
+        tomorrow_match = re.match(r'tomorrow\s+at\s+(\d{1,2}):(\d{2})', time_expression)
+        if tomorrow_match:
+            hour = int(tomorrow_match.group(1))
+            minute = int(tomorrow_match.group(2))
+            tomorrow = now + timedelta(days=1)
+            return tomorrow.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        
+        # Pattern: "at HH:MM" (today)
+        at_time_match = re.match(r'at\s+(\d{1,2}):(\d{2})', time_expression)
+        if at_time_match:
+            hour = int(at_time_match.group(1))
+            minute = int(at_time_match.group(2))
+            target_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+            
+            # If time has passed today, schedule for tomorrow
+            if target_time <= now:
+                target_time += timedelta(days=1)
+            
+            return target_time
+        
+        # Pattern: "Monday/Tuesday/etc at HH:MM"
+        weekday_match = re.match(
+            r'(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+at\s+(\d{1,2}):(\d{2})',
+            time_expression
+        )
+        if weekday_match:
+            weekday_name = weekday_match.group(1)
+            hour = int(weekday_match.group(2))
+            minute = int(weekday_match.group(3))
+            
+            weekday_map = {
+                'monday': 0, 'tuesday': 1, 'wednesday': 2, 'thursday': 3,
+                'friday': 4, 'saturday': 5, 'sunday': 6
+            }
+            target_weekday = weekday_map[weekday_name]
+            current_weekday = now.weekday()
+            
+            # Calculate days until target weekday
+            days_ahead = target_weekday - current_weekday
+            if days_ahead <= 0:  # Target day already happened this week
+                days_ahead += 7
+            
+            target_date = now + timedelta(days=days_ahead)
+            return target_date.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        
+        return None
     
-    # Pattern: ISO format "YYYY-MM-DD HH:MM"
-    iso_match = re.search(r'(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2})[:.h](\d{2})', text)
-    if iso_match:
-        year = int(iso_match.group(1))
-        month = int(iso_match.group(2))
-        day = int(iso_match.group(3))
-        hour = int(iso_match.group(4))
-        minute = int(iso_match.group(5))
-        return datetime(year, month, day, hour, minute, tzinfo=USER_TIMEZONE)
+    @classmethod
+    def now(cls) -> datetime:
+        """Get current time in Europe/Stockholm timezone."""
+        return datetime.now(cls.TIMEZONE)
     
-    return None
-
-
-def format_time_friendly(dt: datetime) -> str:
-    """Format datetime in a friendly way for display"""
-    now = get_current_time()
-    
-    # Calculate time difference
-    diff = dt - now
-    
-    # If it's today
-    if dt.date() == now.date():
-        return f"today at {dt.strftime('%H:%M')}"
-    
-    # If it's tomorrow
-    if dt.date() == (now + timedelta(days=1)).date():
-        return f"tomorrow at {dt.strftime('%H:%M')}"
-    
-    # If within the next week
-    if 0 < diff.days <= 7:
-        day_name = dt.strftime('%A')
-        return f"{day_name} at {dt.strftime('%H:%M')}"
-    
-    # Otherwise show date
-    return dt.strftime('%Y-%m-%d at %H:%M')
-
-
-def should_send_daily_update() -> bool:
-    """Check if it's time for the 9 AM daily update"""
-    now = get_current_time()
-    return now.hour == 9 and now.minute < 5  # 5-minute window
-
-
-def get_next_9am() -> datetime:
-    """Get the next 9 AM time in Sweden timezone"""
-    now = get_current_time()
-    next_9am = now.replace(hour=9, minute=0, second=0, microsecond=0)
-    
-    if now.hour >= 9:
-        next_9am += timedelta(days=1)
-    
-    return next_9am
-
-
-# Example usage and tests
-if __name__ == "__main__":
-    now = get_current_time()
-    print(f"Current time in Sweden: {now}")
-    
-    test_cases = [
-        "in 5 minutes",
-        "in 2 hours",
-        "tomorrow at 12:00",
-        "Thursday at 14:22",
-        "at 15:30",
-        "monday at 9:00"
-    ]
-    
-    print("\nTest cases:")
-    for test in test_cases:
-        result = parse_reminder_time(test)
-        if result:
-            print(f"'{test}' -> {format_time_friendly(result)} ({result})")
-        else:
-            print(f"'{test}' -> Failed to parse")
+    def get_capacity_summary(self) -> dict:
+        """Get capacity analysis - stub for now."""
+        return {
+            "status": "unknown",
+            "message": "Capacity analysis not yet implemented"
+        }

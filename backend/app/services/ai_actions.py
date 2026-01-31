@@ -5,7 +5,7 @@ Handles reminder creation with natural language time parsing
 from datetime import datetime
 from typing import Optional, Dict, Any
 import logging
-from .time_intelligence import parse_reminder_time, format_time_friendly, get_current_time
+from .time_intelligence import TimeIntelligence
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ class AIActionsService:
         """
         try:
             # Parse the time expression
-            reminder_time = parse_reminder_time(time_expression)
+            reminder_time = TimeIntelligence.parse_reminder_time(time_expression)
             
             if reminder_time is None:
                 return {
@@ -46,7 +46,7 @@ class AIActionsService:
                 }
             
             # Ensure reminder is in the future
-            now = get_current_time()
+            now = TimeIntelligence.now()
             if reminder_time <= now:
                 return {
                     "success": False,
@@ -70,7 +70,7 @@ class AIActionsService:
             self.db.refresh(reminder)
             
             # Format friendly response
-            friendly_time = format_time_friendly(reminder_time)
+            friendly_time = TimeIntelligence.format_time_friendly(reminder_time)
             
             logger.info(f"Created reminder for user {user_id}: '{task}' at {reminder_time}")
             
@@ -98,7 +98,7 @@ class AIActionsService:
             query = self.db.query(Reminder).filter(Reminder.user_id == user_id)
             
             if not include_past:
-                now = get_current_time()
+                now = TimeIntelligence.now()
                 query = query.filter(Reminder.reminder_time > now)
             
             reminders = query.order_by(Reminder.reminder_time).all()
@@ -109,7 +109,7 @@ class AIActionsService:
                     "id": r.id,
                     "task": r.task,
                     "time": r.reminder_time.isoformat(),
-                    "friendly_time": format_time_friendly(r.reminder_time),
+                    "friendly_time": TimeIntelligence.format_time_friendly(r.reminder_time),
                     "is_sent": r.is_sent
                 })
             

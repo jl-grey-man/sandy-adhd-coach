@@ -12,7 +12,7 @@ class TimeIntelligence:
     TIMEZONE = ZoneInfo("Europe/Stockholm")
     
     def __init__(self, user_id: int, db: Session):
-        """Initialize with user and database context."""
+        """Initialize with user context."""
         self.user_id = user_id
         self.db = db
     
@@ -101,6 +101,52 @@ class TimeIntelligence:
     def now(cls) -> datetime:
         """Get current time in Europe/Stockholm timezone."""
         return datetime.now(cls.TIMEZONE)
+    
+    @classmethod
+    def format_time_friendly(cls, target_time: datetime) -> str:
+        """
+        Format a datetime as a friendly human-readable string.
+        
+        Examples:
+        - "in 5 minutes"
+        - "today at 14:30"
+        - "tomorrow at 09:00"
+        - "Monday at 16:00"
+        
+        Args:
+            target_time: Timezone-aware datetime to format
+            
+        Returns:
+            Friendly time string
+        """
+        now = cls.now()
+        
+        # Calculate time difference
+        diff = target_time - now
+        
+        # If less than an hour away, show "in X minutes"
+        if diff.total_seconds() < 3600:
+            minutes = int(diff.total_seconds() / 60)
+            if minutes <= 1:
+                return "in 1 minute"
+            return f"in {minutes} minutes"
+        
+        # If less than 24 hours and same day, show "today at HH:MM"
+        if target_time.date() == now.date():
+            return f"today at {target_time.strftime('%H:%M')}"
+        
+        # If tomorrow, show "tomorrow at HH:MM"
+        if target_time.date() == (now + timedelta(days=1)).date():
+            return f"tomorrow at {target_time.strftime('%H:%M')}"
+        
+        # If within a week, show weekday name
+        if diff.days < 7:
+            weekday_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+            weekday = weekday_names[target_time.weekday()]
+            return f"{weekday} at {target_time.strftime('%H:%M')}"
+        
+        # Otherwise show full date
+        return target_time.strftime('%Y-%m-%d at %H:%M')
     
     def get_capacity_summary(self) -> dict:
         """Get capacity analysis - stub for now."""

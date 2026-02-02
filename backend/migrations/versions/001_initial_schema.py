@@ -27,24 +27,17 @@ def upgrade() -> None:
         sa.Column('email', sa.String(length=255), nullable=False),
         sa.Column('password_hash', sa.String(length=255), nullable=False),
         sa.Column('name', sa.String(length=100), nullable=True),
-        sa.Column('timezone', sa.String(length=50), nullable=False),
+        sa.Column('timezone', sa.String(length=50), nullable=False, server_default='UTC'),
         sa.Column('created_at', sa.DateTime(), nullable=False),
         sa.Column('updated_at', sa.DateTime(), nullable=False),
-        sa.Column('is_active', sa.Boolean(), nullable=False, server_default='true'),
-        sa.Column('telegram_id', sa.BigInteger(), nullable=True),
-        sa.Column('telegram_username', sa.String(length=100), nullable=True),
-        sa.Column('telegram_first_name', sa.String(length=100), nullable=True),
-        sa.Column('telegram_last_name', sa.String(length=100), nullable=True),
+        sa.Column('preferences', postgresql.JSONB(astext_type=sa.Text()), nullable=False, server_default='{"voice_enabled": true, "notification_enabled": true, "checkin_times": {"morning": "09:00", "evening": "20:00"}}'),
+        sa.Column('adhd_profile', postgresql.JSONB(astext_type=sa.Text()), nullable=False, server_default='{}'),
         sa.Column('telegram_chat_id', sa.BigInteger(), nullable=True),
-        sa.Column('adhd_type', sa.String(length=50), nullable=True),
-        sa.Column('energy_patterns', sa.Text(), nullable=True),
-        sa.Column('focus_triggers', sa.Text(), nullable=True),
-        sa.Column('stress_signals', sa.Text(), nullable=True),
+        sa.Column('telegram_username', sa.String(length=100), nullable=True),
+        sa.Column('morning_briefing_time', sa.String(length=5), nullable=False, server_default='09:00'),
         sa.PrimaryKeyConstraint('id')
     )
-    op.create_index('ix_users_email', 'users', ['email'], unique=True)
-    op.create_index('ix_users_telegram_id', 'users', ['telegram_id'], unique=True)
-    op.create_index('ix_users_telegram_chat_id', 'users', ['telegram_chat_id'], unique=True)
+    op.create_index('idx_users_email', 'users', ['email'], unique=True)
 
     # Conversations table
     op.create_table('conversations',

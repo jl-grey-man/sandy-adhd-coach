@@ -43,34 +43,60 @@ class TelegramService:
         logger.info("Telegram bot initialized successfully")
     
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /start command."""
+        """Handle /start command - creates user if needed."""
         chat_id = update.effective_chat.id
         username = update.effective_user.username
-        
-        # Link this Telegram account to user
+        first_name = update.effective_user.first_name or "User"
+
         db = next(get_db())
         try:
-            # For now, link to the test user (user@example.com)
-            # Later: implement proper linking flow
-            user = db.query(User).filter(User.email == "user@example.com").first()
-            if user:
-                user.telegram_chat_id = chat_id
-                user.telegram_username = username
-                db.commit()
-                
-                await update.message.reply_text(
-                    "🤖 *ADHD Coach Connected!*\n\n"
-                    f"Morning briefing set for {user.morning_briefing_time}\n"
-                    "I'll send you:\n"
-                    "• Daily focus recommendations\n"
-                    "• Task confirmations\n\n"
-                    "Just message me anytime!",
-                    parse_mode='Markdown'
-                )
-            else:
-                await update.message.reply_text(
-                    "⚠️ Could not find your account. Please log in to the web app first."
-                )
+            # Check if user already exists by telegram_chat_id
+            user = db.query(User).filter(User.telegram_chat_id == chat_id).first()
+
+            if not user:
+                # Check if test user exists without telegram link
+                user = db.query(User).filter(User.email == "user@example.com").first()
+
+                if user:
+                    # Link existing user to this Telegram account
+                    user.telegram_chat_id = chat_id
+                    user.telegram_username = username
+                    db.commit()
+                else:
+                    # Create new user automatically for Telegram
+                    from datetime import datetime
+                    import bcrypt
+
+                    # Generate a random password (user won't need it for Telegram)
+                    random_password = bcrypt.hashpw(b"telegram_user", bcrypt.gensalt()).decode('utf-8')
+
+                    user = User(
+                        email=f"telegram_{chat_id}@sandy.local",
+                        password_hash=random_password,
+                        name=first_name,
+                        telegram_chat_id=chat_id,
+                        telegram_username=username,
+                        timezone="UTC",
+                        created_at=datetime.utcnow(),
+                        updated_at=datetime.utcnow()
+                    )
+                    db.add(user)
+                    db.commit()
+
+            await update.message.reply_text(
+                "🤖 *ADHD Coach Connected!*\n\n"
+                f"Morning briefing set for {user.morning_briefing_time}\n"
+                "I'll send you:\n"
+                "• Daily focus recommendations\n"
+                "• Task confirmations\n\n"
+                "Just message me anytime!",
+                parse_mode='Markdown'
+            )
+        except Exception as e:
+            logger.error(f"Error in start_command: {e}")
+            await update.message.reply_text(
+                "⚠️ Sorry, there was an error connecting your account. Please try again."
+            )
         finally:
             db.close()
     

@@ -5,10 +5,9 @@ FastAPI application entry point for the ADHD coaching system.
 """
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 
-from app.routers import auth, chat, frontend, telegram, projects, patterns, admin
+from app.routers import auth, telegram, projects, patterns, admin
 
 # Create FastAPI app instance
 app = FastAPI(
@@ -17,19 +16,10 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# Configure CORS for frontend integration
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Next.js default port
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# CORS removed - no web frontend, Telegram only
 
 # Include routers
-app.include_router(frontend.router)  # Frontend UI - must be first to capture root
 app.include_router(auth.router)
-app.include_router(chat.router)
 app.include_router(telegram.router)
 app.include_router(projects.router)
 app.include_router(patterns.router)  # Pattern learning API

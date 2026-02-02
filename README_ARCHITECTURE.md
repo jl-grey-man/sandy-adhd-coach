@@ -45,12 +45,6 @@ After completing the essential reading, you should understand:
 ### Technology Stack
 
 ```
-Frontend:
-├─ React (TypeScript)
-├─ Vite build system
-├─ Tailwind CSS
-└─ Deployed: Vercel
-
 Backend:
 ├─ FastAPI (Python)
 ├─ PostgreSQL database
@@ -58,16 +52,14 @@ Backend:
 ├─ Pinecone vector DB (memory)
 └─ Deployed: Railway
 
-Integrations:
-├─ Telegram bot
-├─ Web interface
-└─ Shared authentication & data
+Interface:
+└─ Telegram bot
 ```
 
 ### System Architecture
 
 ```
-User Input (Telegram/Web)
+User Input (Telegram)
     ↓
 Backend API (FastAPI)
     ↓
@@ -494,8 +486,8 @@ Full details in `DEVELOPMENT_GUIDE.md`
 **Version**: Production (as of Jan 29, 2026)
 
 **Key Features Working**:
-- ✅ Web and Telegram chat
-- ✅ Task/project/reminder management
+- ✅ Telegram chat interface
+- ✅ Task/project management
 - ✅ Pattern learning (18 categories, 90 subpatterns)
 - ✅ Hypothesis formation with confidence scoring
 - ✅ Context-aware responses

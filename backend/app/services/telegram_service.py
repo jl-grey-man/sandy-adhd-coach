@@ -63,8 +63,7 @@ class TelegramService:
                     f"Morning briefing set for {user.morning_briefing_time}\n"
                     "I'll send you:\n"
                     "• Daily focus recommendations\n"
-                    "• Task confirmations\n"
-                    "• Smart reminders\n\n"
+                    "• Task confirmations\n\n"
                     "Just message me anytime!",
                     parse_mode='Markdown'
                 )
@@ -239,7 +238,6 @@ class TelegramService:
             
             # Get AI response
             from app.services.ai import get_ai_response
-            from app.services.ai_actions import extract_actions_from_response, execute_action
             from app.services.context import build_context_for_ai, format_context_for_prompt
             
             # Get user profile
@@ -299,10 +297,6 @@ class TelegramService:
                 feedback_confirmation = apply_feedback(feedback_data, user.id, db)
                 logger.info(f"Applied feedback: {feedback_data['instruction']}")
             
-            # Extract and execute any actions from response
-            actions = extract_actions_from_response(response)
-            logger.info(f"Extracted actions: {actions}")
-            
             # Also try to parse raw JSON if AI didn't use code blocks
             if not actions:
                 # Look for raw JSON objects at start of response
@@ -337,28 +331,10 @@ class TelegramService:
                 clean_response = f"{feedback_confirmation}\n\n{clean_response}" if clean_response else feedback_confirmation
             
             logger.info(f"Cleaned response: {clean_response}")
-            
-            # HANDLE AI ACTIONS (like reminder creation)
-            from app.services.context import handle_ai_actions
-            clean_response = await handle_ai_actions(clean_response, user.id, db)
-            
-            # SEND HUMAN RESPONSE FIRST
+
+            # SEND RESPONSE
             if clean_response:
                 await update.message.reply_text(clean_response)
-            
-            # THEN send action confirmations
-            action_result = None
-            for action in actions:
-                result = execute_action(action, user.id, db)
-                action_result = result  # Store for learning
-                
-                if result["success"]:
-                    # Send confirmation message
-                    await self.send_action_confirmation(
-                        user_id=user.id,
-                        action_type=result["action_type"],
-                        details=result["details"]
-                    )
             
             # REAL-TIME LEARNING - Extract and save patterns immediately
             from app.services.learning_extraction import extract_and_save_learnings
@@ -452,14 +428,7 @@ class TelegramService:
                 return
             
             # Format based on action type
-            if action_type == "create_reminder":
-                message = (
-                    "⏰ *REMINDER SET*\n"
-                    f"💬 {details.get('message')}\n"
-                    f"🕐 Will remind you at {details.get('remind_at')}\n"
-                )
-            
-            elif action_type == "calendar_event":
+            if action_type == "calendar_event":
                 message = (
                     "✅ *ADDED TO CALENDAR*\n"
                     f"📅 {details.get('title')}\n"

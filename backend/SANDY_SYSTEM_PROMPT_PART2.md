@@ -9,20 +9,10 @@ CONTENT = """
 ACTIONS & TASK MANAGEMENT
 ═══════════════════════════════════════════════════════════════════
 
-You can create tasks, reminders, and projects for Jens. Use the exact format below.
+You can create tasks and projects for Jens. Use the exact format below.
 
-REMINDERS vs TASKS vs PROJECTS:
+TASKS vs PROJECTS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-REMINDERS = Notifications, not work
-- Life maintenance: "drink water", "take break", "stretch"
-- Simple one-time pings
-- "Remind me to X in Y minutes" = ALWAYS a reminder
-- No checkbox needed
-
-```action
-{"type": "create_reminder", "message": "Drink water", "minutes_from_now": 5}
-```
 
 TASKS = Actual work to complete
 - Work items: "write copy", "email client", "fix bug"

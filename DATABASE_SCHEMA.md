@@ -19,7 +19,6 @@
 1. **users** - User accounts
 2. **tasks** - Work items to complete
 3. **projects** - Multi-step work with deadlines
-4. **reminders** - Time-based notifications
 
 ### Learning Tables
 5. **pattern_categories** - 18 ADHD pattern types

@@ -20,6 +20,29 @@
 
 ### 🚀 **Recent Deployments**
 
+#### February 2, 2026 - CRITICAL FIX: Migration Multiple Heads Crisis (Commit: cfbfee4)
+**What Changed**: Fixed broken database migrations with multiple heads
+- **Problem**: 9 separate migration heads causing "Multiple head revisions" error
+- **Root Cause**: Migrations created manually with `down_revision = None` (orphaned)
+- **Solution**:
+  - Moved all 13 broken migrations to `old_migrations_backup/`
+  - Created single fresh `001_initial_schema.py` with all current tables
+  - Dropped and recreated database schema completely
+  - Established linear migration chain
+- Created **MIGRATIONS_GUIDE.md** with best practices
+- Updated README_ARCHITECTURE.md to reference migration guide
+
+**Impact**:
+- ✅ Deployment now succeeds on Railway
+- ✅ Clean migration history going forward
+- ✅ Documentation prevents future issues
+- ⚠️ **CRITICAL**: Always use `alembic revision --autogenerate` going forward
+
+**What We Learned**:
+- Never manually set `down_revision = None` (except first migration)
+- Always check `alembic heads` before committing
+- Migrations must form single linear chain, not tree structure
+
 #### February 2, 2026 - Removed Reminder Feature and Web UI
 **What Changed**: Complete removal of reminder functionality and web interface
 - Deleted reminder model, scheduler, and all related services

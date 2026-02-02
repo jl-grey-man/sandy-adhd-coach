@@ -550,6 +550,13 @@ If you only read a few files, read these:
 
 ### Detailed Subsystem Docs
 
+**`MIGRATIONS_GUIDE.md`** ⚠️ **CRITICAL - READ BEFORE CHANGING DATABASE**:
+- Database migration best practices
+- How to avoid "multiple heads" errors
+- Emergency fixes for broken migrations
+- Step-by-step migration workflow
+- What went wrong and how we fixed it (Feb 2026 incident)
+
 **`DEPLOYMENT_GUIDE.md`**:
 - Railway deployment
 - Vercel deployment

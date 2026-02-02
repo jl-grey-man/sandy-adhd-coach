@@ -6,23 +6,17 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://localhost/adhd_coach_dev"
     environment: str = "development"
     debug: bool = True
-    port: int = 8000
 
-    # JWT settings
-    secret_key: str = "your-secret-key-change-in-production"
-    algorithm: str = "HS256"
-    access_token_expire_minutes: int = 30
-
-    # Together.ai settings
+    # Together.ai settings (for AI responses)
     together_api_key: str = ""
-    
-    # Pinecone settings
+
+    # Pinecone settings (for memory/embeddings)
     pinecone_api_key: str = ""
-    
+
     # OpenAI settings (for embeddings)
     openai_api_key: str = ""
-    
-    # Telegram settings
+
+    # Telegram settings (primary interface)
     telegram_bot_token: str = ""
 
     class Config:

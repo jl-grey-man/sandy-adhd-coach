@@ -3,6 +3,10 @@ set -e
 
 echo "🚀 Starting ADHD Coach services..."
 
+# Fix Alembic heads (one-time fix for migration cleanup)
+echo "🔧 Fixing Alembic migration heads..."
+python3 fix_alembic_heads.py || echo "⚠️  Fix script failed or already fixed"
+
 # Run database migrations
 echo "🔄 Running database migrations..."
 alembic upgrade head

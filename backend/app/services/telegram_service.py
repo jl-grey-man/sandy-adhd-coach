@@ -274,15 +274,20 @@ class TelegramService:
             context_str = format_context_for_prompt(context_data)
             
             # Get relevant long-term memories using Pinecone (SAME AS WEB CHAT)
-            from app.services.memory import get_memory_service
-            memory_service = get_memory_service()
-            
-            relevant_memories = memory_service.search_relevant_memories(
-                query=user_message,
-                user_id=user.id,
-                top_k=3,
-                exclude_session=f"user_{user.id}_global"
-            )
+            relevant_memories = []
+            try:
+                from app.services.memory import get_memory_service
+                memory_service = get_memory_service()
+
+                relevant_memories = memory_service.search_relevant_memories(
+                    query=user_message,
+                    user_id=user.id,
+                    top_k=3,
+                    exclude_session=f"user_{user.id}_global"
+                )
+            except Exception as e:
+                logger.warning(f"Memory service unavailable: {e}")
+                # Continue without memories
             
             # Get recent conversation history (last 10 messages from ANY interface)
             from app.models.conversation import Conversation

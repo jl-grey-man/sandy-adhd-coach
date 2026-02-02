@@ -32,7 +32,7 @@ After completing the essential reading, you should understand:
 **Core Concept**: A personal assistant with personality who:
 - Learns Jens's ADHD patterns through conversation
 - Provides accountability without being a therapist
-- Manages tasks, projects, and reminders
+- Manages tasks and projects
 - Calls out procrastination with playful directness
 - Uses pattern recognition to improve over time
 
@@ -113,7 +113,7 @@ Read these files in this order to understand the complete system:
 **Why**: Sandy's actions and features (Part 2)
 **Location**: `/backend/SANDY_SYSTEM_PROMPT_PART2.md`
 **Contains**:
-- Action system (tasks, reminders, projects)
+- Action system (tasks, projects)
 - Exploration mode
 - Memory & learning integration
 - Conversational patterns
@@ -169,14 +169,6 @@ sandy-adhd-coach/
 │   ├── SANDY_SYSTEM_PROMPT_PART2.md # Actions & learning (Part 2)
 │   └── requirements.txt            # Python dependencies
 │
-├── frontend/                        # React TypeScript frontend
-│   ├── src/
-│   │   ├── components/             # React components
-│   │   ├── pages/                  # Page components
-│   │   ├── services/               # API client
-│   │   └── App.tsx                # Main app component
-│   └── package.json               # Node dependencies
-│
 ├── docs/                           # THIS DOCUMENTATION
 │   ├── README_ARCHITECTURE.md     # ← YOU ARE HERE
 │   ├── DATABASE_SCHEMA.md         # Database structure
@@ -212,7 +204,6 @@ sandy-adhd-coach/
 **Routers** (API Endpoints):
 - `app/routers/auth.py` - Authentication (login, signup)
 - `app/routers/telegram.py` - Telegram webhook handler
-- `app/routers/chat.py` - Web chat endpoint
 - `app/routers/tasks.py` - Task CRUD operations
 - `app/routers/patterns.py` - Pattern viewing endpoints
 - `app/routers/admin.py` - Admin operations (fix DB, etc.)
@@ -237,7 +228,7 @@ Sandy uses TWO prompt files that are concatenated:
 - Working with hypotheses (stay curious, not defensive)
 
 **SANDY_SYSTEM_PROMPT_PART2.md** (Part 2):
-- Action system (tasks, reminders, projects)
+- Action system (tasks, projects)
 - Exploration mode
 - Memory & learning integration
 - Context awareness
@@ -293,7 +284,7 @@ This context is invisible to the user but crucial for Sandy's awareness.
 
 ### 4. Action System
 
-Sandy can create tasks/reminders/projects using JSON actions:
+Sandy can create tasks/projects using JSON actions:
 
 ```python
 # User says: "Remind me to call John in 30 minutes"
@@ -397,7 +388,6 @@ POST /auth/signup - Create user account
 POST /auth/login  - Get JWT token
 
 Chat:
-POST /chat - Send message, get Sandy response
   Headers: Authorization: Bearer {token}
   Body: {"message": "your message"}
   Returns: {"response": "...", "actions": [...]}
@@ -439,7 +429,7 @@ Full details in `API_REFERENCE.md`
 git add .
 git commit -m "Description"
 git push origin main
-# Railway and Vercel auto-deploy
+# Railway auto-deploys
 ```
 
 Full details in `DEPLOYMENT_GUIDE.md`
@@ -458,10 +448,9 @@ source venv/bin/activate  # or venv\Scripts\activate on Windows
 pip install -r requirements.txt
 uvicorn app.main:app --reload
 
-# Frontend
-cd frontend
-npm install
-npm run dev
+# Telegram Bot (separate process)
+cd backend
+python run_telegram_bot.py
 ```
 
 **Environment Variables**:
@@ -472,9 +461,6 @@ OPENAI_API_KEY=sk-...
 PINECONE_API_KEY=...
 JWT_SECRET=...
 TELEGRAM_BOT_TOKEN=...
-
-# Frontend (.env)
-VITE_API_URL=http://localhost:8000
 ```
 
 Full details in `DEVELOPMENT_GUIDE.md`
@@ -483,17 +469,26 @@ Full details in `DEVELOPMENT_GUIDE.md`
 
 ## 📊 **CURRENT SYSTEM STATE**
 
-**Version**: Production (as of Jan 29, 2026)
+**Version**: Production (as of Feb 2, 2026)
+**Interface**: Telegram-only (web UI removed)
 
 **Key Features Working**:
-- ✅ Telegram chat interface
-- ✅ Task/project management
+- ✅ Telegram chat interface (primary and only interface)
+- ✅ Task/project/goal management
 - ✅ Pattern learning (18 categories, 90 subpatterns)
 - ✅ Hypothesis formation with confidence scoring
 - ✅ Context-aware responses
 - ✅ Time intelligence (capacity analysis)
 - ✅ Memory system (Pinecone)
 - ✅ Spirit-over-script prompt system
+- ✅ Check-ins, metrics, work sessions tracking
+- ✅ Wheel of Life tracking
+- ✅ Backburner for ideas
+
+**Recently Removed** (Feb 2, 2026):
+- ❌ Reminders feature (will be re-implemented later)
+- ❌ Web UI (Telegram-only now)
+- ❌ CORS middleware (no longer needed)
 
 **Recent Major Changes**:
 1. **Hypothesis challenge behavior** (Jan 29)
@@ -592,9 +587,9 @@ If you only read a few files, read these:
 
 ## 🧠 **HOW SANDY WORKS - COMPLETE FLOW**
 
-**User sends message** (Telegram or Web)
+**User sends message** (Telegram only)
     ↓
-**Backend receives request** (`/chat` or `/telegram/webhook`)
+**Backend receives request** (`/telegram/webhook`)
     ↓
 **Load system prompts** (FULL.md + PART2.md)
     ↓
@@ -612,11 +607,11 @@ If you only read a few files, read these:
     ↓
 **Parse response**:
     ├─ Extract text response for user
-    ├─ Parse ```action blocks (tasks/reminders/projects)
+    ├─ Parse ```action blocks (tasks/projects)
     └─ Extract learning observations (`learning_extraction.py`)
     ↓
 **Execute actions**:
-    ├─ Create tasks/reminders in database
+    ├─ Create tasks in database
     └─ Return confirmation to user
     ↓
 **Process learning** (after conversation):

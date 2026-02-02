@@ -265,13 +265,18 @@ class TelegramService:
             # Get AI response
             from app.services.ai import get_ai_response
             from app.services.context import build_context_for_ai, format_context_for_prompt
-            
+
             # Get user profile
             user_profile = user.adhd_profile or {}
-            
+
             # Get current context (projects, tasks, etc.)
-            context_data = build_context_for_ai(user.id, db)
-            context_str = format_context_for_prompt(context_data)
+            try:
+                context_data = build_context_for_ai(user.id, db)
+                context_str = format_context_for_prompt(context_data)
+            except Exception as e:
+                logger.warning(f"Error building context: {e}")
+                context_data = {}
+                context_str = ""
             
             # Get relevant long-term memories using Pinecone (SAME AS WEB CHAT)
             relevant_memories = []
@@ -324,14 +329,17 @@ class TelegramService:
                 return
             
             # DETECT AND APPLY FEEDBACK (if user is giving Sandy instructions)
-            from app.services.feedback import detect_feedback, apply_feedback
-            
-            feedback_data = detect_feedback(user_message)
             feedback_confirmation = None
+            try:
+                from app.services.feedback import detect_feedback, apply_feedback
 
-            if feedback_data['is_feedback']:
-                feedback_confirmation = apply_feedback(feedback_data, user.id, db)
-                logger.info(f"Applied feedback: {feedback_data['instruction']}")
+                feedback_data = detect_feedback(user_message)
+
+                if feedback_data['is_feedback']:
+                    feedback_confirmation = apply_feedback(feedback_data, user.id, db)
+                    logger.info(f"Applied feedback: {feedback_data['instruction']}")
+            except Exception as e:
+                logger.warning(f"Error processing feedback: {e}")
 
             # Initialize actions list
             actions = []
@@ -379,18 +387,21 @@ class TelegramService:
                 await update.message.reply_text("I heard you! Let me think about that...")
             
             # REAL-TIME LEARNING - Extract and save patterns immediately
-            from app.services.learning_extraction import extract_and_save_learnings
+            try:
+                from app.services.learning_extraction import extract_and_save_learnings
 
-            learnings = extract_and_save_learnings(
-                user_message=user_message,
-                ai_response=clean_response or response,
-                user_id=user.id,
-                db=db,
-                action_result=None  # No action was executed in this flow
-            )
-            
-            if learnings:
-                logger.info(f"Extracted {len(learnings)} learnings from interaction")
+                learnings = extract_and_save_learnings(
+                    user_message=user_message,
+                    ai_response=clean_response or response,
+                    user_id=user.id,
+                    db=db,
+                    action_result=None  # No action was executed in this flow
+                )
+
+                if learnings:
+                    logger.info(f"Extracted {len(learnings)} learnings from interaction")
+            except Exception as e:
+                logger.warning(f"Error extracting learnings: {e}")
             
             # Save conversation to database for history
             # Use user-based session_id for cross-platform sync

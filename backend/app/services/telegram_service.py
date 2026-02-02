@@ -301,17 +301,22 @@ class TelegramService:
                 conversation_history.append({"role": "assistant", "content": conv.ai_response})
             
             # Call AI service with context data (includes learned patterns) AND relevant memories
-            response = get_ai_response(
-                user_message=user_message,
-                user_id=user.id,
-                db=db,
-                conversation_history=conversation_history,
-                context=context_data,  # This now includes learned_patterns and exploration_status
-                relevant_memories=relevant_memories  # Long-term memory from Pinecone
-            )
-            
-            # DEBUG: Log the raw response
-            logger.info(f"Raw AI response: {response}")
+            try:
+                response = get_ai_response(
+                    user_message=user_message,
+                    user_id=user.id,
+                    db=db,
+                    conversation_history=conversation_history,
+                    context=context_data,  # This now includes learned_patterns and exploration_status
+                    relevant_memories=relevant_memories  # Long-term memory from Pinecone
+                )
+
+                # DEBUG: Log the raw response
+                logger.info(f"Raw AI response: {response}")
+            except Exception as e:
+                logger.error(f"Error getting AI response: {e}")
+                await update.message.reply_text("Sorry, I'm having trouble thinking right now. Please try again!")
+                return
             
             # DETECT AND APPLY FEEDBACK (if user is giving Sandy instructions)
             from app.services.feedback import detect_feedback, apply_feedback
@@ -361,9 +366,12 @@ class TelegramService:
             
             logger.info(f"Cleaned response: {clean_response}")
 
-            # SEND RESPONSE
+            # SEND RESPONSE - always send something
             if clean_response:
                 await update.message.reply_text(clean_response)
+            else:
+                # Fallback if response was completely stripped
+                await update.message.reply_text("I heard you! Let me think about that...")
             
             # REAL-TIME LEARNING - Extract and save patterns immediately
             from app.services.learning_extraction import extract_and_save_learnings

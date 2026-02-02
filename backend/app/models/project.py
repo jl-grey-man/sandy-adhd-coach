@@ -23,7 +23,7 @@ class Project(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     status: Mapped[ProjectStatus] = mapped_column(
         SQLEnum(ProjectStatus), 
@@ -52,4 +52,4 @@ class Project(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<Project(id={self.id}, title={self.title}, status={self.status})>"
+        return f"<Project(id={self.id}, name={self.name}, status={self.status})>"

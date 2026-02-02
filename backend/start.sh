@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "🚀 Starting ADHD Coach services..."
+echo "🚀 Starting ADHD Coach (Telegram-only)..."
 
 # Fix Alembic heads (one-time fix for migration cleanup)
 echo "🔧 Fixing Alembic migration heads..."
@@ -12,12 +12,6 @@ echo "🔄 Running database migrations..."
 alembic upgrade head
 echo "✅ Migrations complete"
 
-# Start Telegram bot in background
+# Start Telegram bot in foreground (no web server needed)
 echo "📱 Starting Telegram bot..."
-python3 run_telegram_bot.py &
-TELEGRAM_PID=$!
-echo "✅ Telegram bot started (PID: $TELEGRAM_PID)"
-
-# Start web server in foreground
-echo "🌐 Starting web server..."
-uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+python3 run_telegram_bot.py

@@ -318,11 +318,14 @@ class TelegramService:
             
             feedback_data = detect_feedback(user_message)
             feedback_confirmation = None
-            
+
             if feedback_data['is_feedback']:
                 feedback_confirmation = apply_feedback(feedback_data, user.id, db)
                 logger.info(f"Applied feedback: {feedback_data['instruction']}")
-            
+
+            # Initialize actions list
+            actions = []
+
             # Also try to parse raw JSON if AI didn't use code blocks
             if not actions:
                 # Look for raw JSON objects at start of response
@@ -364,13 +367,13 @@ class TelegramService:
             
             # REAL-TIME LEARNING - Extract and save patterns immediately
             from app.services.learning_extraction import extract_and_save_learnings
-            
+
             learnings = extract_and_save_learnings(
                 user_message=user_message,
                 ai_response=clean_response or response,
                 user_id=user.id,
                 db=db,
-                action_result=action_result
+                action_result=None  # No action was executed in this flow
             )
             
             if learnings:

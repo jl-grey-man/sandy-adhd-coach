@@ -12,7 +12,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 
 # revision identifiers, used by Alembic.
 revision = 'add_exploration_learning'
-down_revision = 'add_reminders_table'
+down_revision = 'ed844c5919cc'  # add_conversations_table
 branch_labels = None
 depends_on = None
 

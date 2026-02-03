@@ -88,7 +88,7 @@ def build_context_for_ai(user_id: int, db: Session, include_intelligence: bool =
     for project in active_projects:
         project_data = {
             "id": project.id,
-            "title": project.title,
+            "title": project.name,  # Project model uses 'name' not 'title'
             "description": project.description,
             "deadline": project.deadline.strftime("%Y-%m-%d") if project.deadline else None,
             "estimated_hours": project.estimated_hours,
